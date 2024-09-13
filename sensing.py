@@ -2,16 +2,23 @@ import rospy
 import time
 import cv2
 
-def run_sensing():
-    print(f"I am sensing")
+class Sensing_Slave:
+    def __init__(self) -> None:
+        rospy.init_node('Sensing_Slave', anonymous=True)
+        self.rate = rospy.Rate(1) # 10hz
 
-def close_sensing():
-    print(f"Closing sensing")
+    def close_sensing(self,):
+        print(f"Closing sensing")
+
+    def run_sensing(self,):
+        while not rospy.is_shutdown():
+            print(f"I am sensing")
+            self.rate.sleep()
+        self.close_sensing()
+
 
 if __name__ =='__main__':
-    # main()
-    while not rospy.is_shutdown():
-        run_sensing()
-    # rospy.spin()
 
+    sensing_part = Sensing_Slave()
+    sensing_part.run_sensing()
 

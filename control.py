@@ -2,16 +2,22 @@ import rospy
 import time
 import cv2
 
-def run_control():
-    print(f"I am Control")
+class Control_Slave:
+    def __init__(self) -> None:
+        rospy.init_node('Control_Slave', anonymous=True)
+        self.rate = rospy.Rate(1) # 10hz
 
-def close_control():
-    print(f"Closing Control")
+    def close_control(self,):
+        print(f"Closing control")
+
+    def run_control(self,):
+        while not rospy.is_shutdown():
+            print(f"I am control")
+            self.rate.sleep()
+        self.close_control()
 
 if __name__ =='__main__':
-    # main()
-    while not rospy.is_shutdown():
-        run_control()
-    # rospy.spin()
 
+    control_part = Control_Slave()
+    control_part.run_control()
 

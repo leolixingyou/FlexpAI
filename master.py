@@ -1,12 +1,8 @@
 import rospy
 import time
 import cv2
-import platform  # for getch()
-
-from sensing import run_sensing, close_sensing
-from perception import run_perception, close_perception
-from planning import run_planning, close_planning
-from control import run_control, close_control
+import subprocess
+import platform  # for get os info
 
 os_name = platform.platform().split('-')[0]
 if os_name == 'Linux':
@@ -18,6 +14,7 @@ class Master_Server:
     def __init__(self) -> None:
         rospy.init_node('Master_Server', anonymous=True)
         self.rate = rospy.Rate(10) # 10hz
+        self.processes = {}
 
     def master_manager(self, keyboard_input):
         print(keyboard_input)
@@ -30,24 +27,33 @@ class Master_Server:
         "f" is control
         """
         if keyboard_input == 'a':
-            run_sensing()
+            if 'sensing' not in self.processes or not self.processes['sensing'].poll() is None:
+                self.processes['sensing'] = subprocess.Popen(['python', 'sensing.py'])
         elif keyboard_input == 'z':
-            close_sensing()
+            if 'sensing' in self.processes:
+                self.processes['sensing'].terminate()
 
         if keyboard_input == 's':
-            run_perception()
+            if 'perception' not in self.processes or not self.processes['perception'].poll() is None:
+                self.processes['perception'] = subprocess.Popen(['python', 'perception.py'])
         elif keyboard_input == 'x':
-            close_perception()
+            if 'perception' in self.processes:
+                self.processes['perception'].terminate()
 
         if keyboard_input == 'd':
-            run_planning()
+            if 'planning' not in self.processes or not self.processes['planning'].poll() is None:
+                self.processes['planning'] = subprocess.Popen(['python', 'planning.py'])
         elif keyboard_input == 'c':
-            close_planning()
+            if 'planning' in self.processes:
+                self.processes['planning'].terminate()
 
         if keyboard_input == 'f':
-            run_control()
+            if 'control' not in self.processes or not self.processes['control'].poll() is None:
+                self.processes['control'] = subprocess.Popen(['python', 'control.py'])
         elif keyboard_input == 'v':
-            close_control()
+            if 'control' in self.processes:
+                self.processes['control'].terminate()
+
 
     def run_master(self):
         while not rospy.is_shutdown() :
