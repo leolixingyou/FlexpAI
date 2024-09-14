@@ -1,0 +1,3 @@
+<launch>
+  <node name="Master_Server" pkg="master" type="ros_master_node.py" output="screen"/>
+</launch>
