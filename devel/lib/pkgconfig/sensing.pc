@@ -1,8 +1,0 @@
-prefix=/workspace/devel
-
-Name: sensing
-Description: Description of sensing
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
