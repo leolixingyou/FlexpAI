@@ -1,0 +1,3 @@
+<launch>
+  <node name="Sensing_Server" pkg="sensing" type="sensing.py" output="screen"/>
+</launch>

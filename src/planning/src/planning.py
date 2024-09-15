@@ -1,27 +1,18 @@
-import rospy
-import time
-import cv2
+#!/usr/bin/env python3
 import rospy
 import time
 import cv2
 
-class Planning_Slave:
+class Planning_Lancher_Manager:
     def __init__(self) -> None:
-        rospy.init_node('Planning_Slave', anonymous=True)
-        self.rate = rospy.Rate(0.5) # 10hz
+        rospy.init_node('Planning_Server', anonymous=True)
+        self.rate = rospy.Rate(10) # 10hz
 
-    def close_planning(self,):
-        print(f"Closing planning")
-
-    def run_planning(self,):
-        while not rospy.is_shutdown():
-            # print(f"I am planning")
+    def run(self):
+        while not rospy.is_shutdown() :
+            print('planning')
             self.rate.sleep()
-        self.close_planning()
 
-
-if __name__ =='__main__':
-
-    planning_part = Planning_Slave()
-    planning_part.run_planning()
-
+if __name__ == "__main__":
+    test_temp = Planning_Lancher_Manager()
+    test_temp.run()

@@ -1,27 +1,18 @@
-import rospy
-import time
-import cv2
+#!/usr/bin/env python3
 import rospy
 import time
 import cv2
 
-class Perception_Slave:
+class Perception_Lancher_Manager:
     def __init__(self) -> None:
-        rospy.init_node('Perception_Slave', anonymous=True)
-        self.rate = rospy.Rate(0.5) # 10hz
+        rospy.init_node('Perception_Server', anonymous=True)
+        self.rate = rospy.Rate(10) # 10hz
 
-    def close_perception(self,):
-        print(f"Closing perception")
-
-    def run_perception(self,):
-        while not rospy.is_shutdown():
-            # print(f"I am perception")
+    def run(self):
+        while not rospy.is_shutdown() :
+            print('perception')
             self.rate.sleep()
-        self.close_perception()
 
-
-if __name__ =='__main__':
-
-    perception_part = Perception_Slave()
-    perception_part.run_perception()
-
+if __name__ == "__main__":
+    test_temp = Perception_Lancher_Manager()
+    test_temp.run()

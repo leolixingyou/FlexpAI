@@ -1,24 +1,18 @@
+#!/usr/bin/env python3
 import rospy
 import time
 import cv2
 
-class Sensing_Slave:
+class Sensing_Lancher_Manager:
     def __init__(self) -> None:
-        rospy.init_node('Sensing_Slave', anonymous=True)
-        self.rate = rospy.Rate(0.5) # 10hz
+        rospy.init_node('Sensing_Server', anonymous=True)
+        self.rate = rospy.Rate(10) # 10hz
 
-    def close_sensing(self,):
-        print(f"Closing sensing")
-
-    def run_sensing(self,):
-        while not rospy.is_shutdown():
-            # print(f"I am sensing")
+    def run(self):
+        while not rospy.is_shutdown() :
+            print('sensing')
             self.rate.sleep()
-        self.close_sensing()
 
-
-if __name__ =='__main__':
-
-    sensing_part = Sensing_Slave()
-    sensing_part.run_sensing()
-
+if __name__ == "__main__":
+    test_temp = Sensing_Lancher_Manager()
+    test_temp.run()

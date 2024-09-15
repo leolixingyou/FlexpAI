@@ -1,7 +1,7 @@
 <launch>
-  <node name="master_node" pkg="= master" type="master.py" output="screen"/>
-  <node name="sensing_node" pkg="= sensing" type="sensing.py" output="screen"/>
-  <node name="perception_node" pkg="= perception" type="perception.py" output="screen"/>
-  <node name="planning_node" pkg="= planning" type="planning.py" output="screen"/>
-  <node name="control_node" pkg="= control" type="control.py" output="screen"/>
+  <node name="Master_Server" pkg="master" type="ros_master_node.py" output="screen"/>
+  <node name="Perception_Server" pkg="perception" type="perception.py" output="screen"/>
+  <node name="Planning_Server" pkg="planning" type="planning.py" output="screen"/>
+  <node name="Sensing_Server" pkg="sensing" type="sensing.py" output="screen"/>
+  <node name="Control_Server" pkg="control" type="control.py" output="screen"/>
 </launch>

@@ -1,0 +1,3 @@
+<launch>
+  <node name="Perception_Server" pkg="perception" type="perception.py" output="screen"/>
+</launch>
