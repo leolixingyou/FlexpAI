@@ -6,6 +6,6 @@ sudo docker run -it \
 --net=host \
 --privileged \
 --name self_vehicle_env \
-leolixingyou/rosvision:1.2_240421_ros
+leolixingyou/ros1_for_self-driving:0.1
 
 
