@@ -1,1 +1,1 @@
-sudo git add src/ .gitignore git_add.sh
+sudo git add src/ .gitignore git_add.sh README.md
