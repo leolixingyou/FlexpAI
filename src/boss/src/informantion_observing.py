@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
-from rospkg import RosPack
 import roslaunch
 import rosnode
 
+##### TODO ISSUE the launch shutdowned by itself with launch.start(False) 
+##### which should run automaticlly on background
 start_l= []
 def launch_f(launch_file_list):
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
     launch = roslaunch.parent.ROSLaunchParent(uuid, launch_file_list)
-    start_l.append(launch.start(False))
-    launch.spin_once()
+    # start_l.append(launch.start(False))
+    launch.start(True)
+    # launch.spin_once()
     # try:
     #     launch.spin()
     # finally:
     #     launch.shutdown()
+
+def launch_generator(launch_file_list):
+    uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+    roslaunch.configure_logging(uuid)
+    return roslaunch.parent.ROSLaunchParent(uuid, launch_file_list)
+
+def launcher_start(launcher):
+    launcher.start(False) ## Default is True, False is autoterminate
 
 def test_launch_f(launch_file_list):
     launch_f(launch_file_list)
@@ -21,7 +31,10 @@ def test_launch_f(launch_file_list):
 
 class Observing_Server:
     def __init__(self) -> None:
-        self.rp = RosPack()
+        pass
+    
+    def update_nodes_info(self):
+        return [x for x in rosnode.get_node_names() if x != '/rosout']
 
     def run(self, input_top):
         packages = self.rp.list()
