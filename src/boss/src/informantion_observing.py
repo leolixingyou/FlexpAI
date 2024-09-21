@@ -4,7 +4,6 @@ import rosnode
 
 ##### TODO ISSUE the launch shutdowned by itself with launch.start(False) 
 ##### which should run automaticlly on background
-start_l= []
 def launch_f(launch_file_list):
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
@@ -23,7 +22,16 @@ def launch_generator(launch_file_list):
     return roslaunch.parent.ROSLaunchParent(uuid, launch_file_list)
 
 def launcher_start(launcher):
-    launcher.start(False) ## Default is True, False is autoterminate
+    """
+    @param auto_terminate: stop process monitor once there are no
+    more processes to monitor (default True). This defaults to
+    True, which is the command-line behavior of roslaunch. Scripts
+    may wish to set this to False if they wish to keep the
+    roslauch infrastructure up regardless of processes being
+    monitored.
+    """
+
+    launcher.start(False) 
 
 def test_launch_f(launch_file_list):
     launch_f(launch_file_list)

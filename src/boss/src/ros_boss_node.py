@@ -4,6 +4,7 @@ import sys
 import cv2
 import rospy
 import rosnode
+import rosgraph
 import platform  # for get os info
 from std_msgs.msg import String
 from informantion_observing import Observing_Server, \
@@ -15,8 +16,25 @@ if os_name == 'Linux':
 elif os_name == 'Windows':
     import msvcrt as getch_os  # for getch()
 
+
+
+def test_clean():
+    """
+    This is a semi-hidden routine for cleaning up stale node
+    registration information on the ROS Master. The intent is to
+    remove this method once Master TTLs are properly implemented.
+    """
+    ID = '/rosnode'
+    pinged, unpinged = rosnode.rosnode_ping_all()
+    if unpinged:
+        master = rosgraph.Master(ID)
+        rosnode.cleanup_master_blacklist(master, unpinged)
+
+        print("done")
+
 class Boss_Lancher_Manager:
     def __init__(self) -> None:
+        #
         ### No Needs for same name with launch the using name defined by launcher
         self.boss_package = '/Boss_Server'
         self.control_package = '/Control_Server'
@@ -39,7 +57,6 @@ class Boss_Lancher_Manager:
         self.sensing_state = 0
         self.planning_state = 0
         self.boss_state = 0
-
 
         self.sub_package = ['/Control_Server']
         self.sub_launch = [
@@ -82,7 +99,7 @@ class Boss_Lancher_Manager:
             print('starting Launcher')
             launcher_start(self.sub_launcher)
         elif self.sub_require_state == 0:
-            ### input should be list [package1, package2, ...]
+            ### input should be list [package1, package2, ...] ## a is given and will give z and q
             print('Kill Nodes')
             rosnode.kill_nodes(self.sub_package)
 
@@ -113,13 +130,9 @@ class Boss_Lancher_Manager:
             self.keyboard_input = 'l'
         print('Killing Nodes')
         rosnode.kill_nodes(self.nodes)
+        test_clean()
         print('Process End Safely')
         
-
-
-
-
-
 if __name__ == "__main__":
     test_temp = Boss_Lancher_Manager()
     test_temp.run()
