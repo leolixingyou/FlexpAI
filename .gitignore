@@ -89,7 +89,7 @@ tmp/**
 test-results*.xml
 xunit-test-results.xml
 build/ci/performance/performance-results.json
-!build/
+
 debug*.log
 debugpy*.log
 pydevd*.log
@@ -106,5 +106,6 @@ python_files/tests/*/.data/.coverage*
 python_files/tests/*/.data/*/.coverage*
 src/testTestingRootWkspc/coverageWorkspace/.coverage
 
-
+#hah
+.catkin_workspace
 
