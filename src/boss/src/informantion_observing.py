@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-import roslaunch
-import rosnode
+import os
+import signal
 
-##### TODO ISSUE the launch shutdowned by itself with launch.start(False) 
-##### which should run automaticlly on background
+import rosnode
+import roslaunch
+
 def launch_f(launch_file_list):
+    """    
+    TODO ISSUE the launch shutdowned by itself with launch.start(False) 
+    which should run automaticlly on background
+    -----    
+    No more development
+    """
+
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
     launch = roslaunch.parent.ROSLaunchParent(uuid, launch_file_list)
@@ -30,18 +38,23 @@ def launcher_start(launcher):
     roslauch infrastructure up regardless of processes being
     monitored.
     """
-
     launcher.start(False) 
+
+def my_kill_nodes(nodes):
+    if type(nodes) != list:
+        nodes = [nodes]
+    return rosnode.kill_nodes(nodes)
 
 def test_launch_f(launch_file_list):
     launch_f(launch_file_list)
     # rosnode.kill_nodes(launch_file_list)
 
+
 class Observing_Server:
     def __init__(self) -> None:
         pass
     
-    def update_nodes_info(self):
+    def update_nodes_info():
         return [x for x in rosnode.get_node_names() if x != '/rosout']
 
     def run(self, input_top):

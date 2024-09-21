@@ -11,8 +11,10 @@ class Control_Lancher_Manager:
         self.pub_master = rospy.Publisher('/control', String, queue_size=10)
 
     def run(self):
+        cnt = 1
         while not rospy.is_shutdown() :
-            print('control')
+            print('control',cnt)
+            cnt += 1
             self.pub_master.publish("master")
             self.rate.sleep()
 

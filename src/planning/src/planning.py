@@ -6,11 +6,13 @@ import cv2
 class Planning_Lancher_Manager:
     def __init__(self) -> None:
         rospy.init_node('Planning_Server', anonymous=True)
-        self.rate = rospy.Rate(10) # 10hz
+        self.rate = rospy.Rate(1) # 10hz
 
     def run(self):
+        cnt = 1
         while not rospy.is_shutdown() :
-            print('planning')
+            print('planning',cnt)
+            cnt += 1
             self.rate.sleep()
 
 if __name__ == "__main__":

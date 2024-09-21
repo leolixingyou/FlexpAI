@@ -2,13 +2,16 @@
 import os
 import sys
 import cv2
+import signal
+import platform  # for get os info
+
 import rospy
 import rosnode
 import rosgraph
-import platform  # for get os info
 from std_msgs.msg import String
+
 from informantion_observing import Observing_Server, \
-launch_generator, launcher_start
+launch_generator, launcher_start, my_kill_nodes
 
 os_name = platform.platform().split('-')[0]
 if os_name == 'Linux':
@@ -17,8 +20,7 @@ elif os_name == 'Windows':
     import msvcrt as getch_os  # for getch()
 
 
-
-def test_clean():
+def rosnodes_my_cleanup():
     """
     This is a semi-hidden routine for cleaning up stale node
     registration information on the ROS Master. The intent is to
@@ -29,111 +31,65 @@ def test_clean():
     if unpinged:
         master = rosgraph.Master(ID)
         rosnode.cleanup_master_blacklist(master, unpinged)
-
         print("done")
+
+def process_cleanup():
+    print("Finally: Performing cleanup")
+    nodes = Observing_Server.update_nodes_info()
+    rosnode.kill_nodes(nodes)
+    rosnodes_my_cleanup()
+    print('Finally: Process End Safely')
+
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    process_cleanup()
+    sys.exit(0)
+
 
 class Boss_Lancher_Manager:
     def __init__(self) -> None:
-        #
+        ### TODO: need to use them with dataclass
+
+        # hrkim
+        self.node_launchpath_dict = { # OrderedDict 대신 dict 사용 (python >= 3.6)
+            '/Control_Server':["/workspace/src/launch/control_launch.launch"],
+            '/Perception_Server':["/workspace/src/launch/perception_launch.launch"],
+            '/Planning_Server':["/workspace/src/launch/planning_launch.launch"],
+            '/Sensing_Server':["/workspace/src/launch/sensing_launch.launch"]}
+        self.sub_launchers = [launch_generator(v) for v in self.node_launchpath_dict.values()] # lambda 마려움
+        
         ### No Needs for same name with launch the using name defined by launcher
-        self.boss_package = '/Boss_Server'
-        self.control_package = '/Control_Server'
-        self.perception_package = '/Perception_Server' 
-        self.planning_package = '/Planning_Server' 
-        self.sensing_package = '/Sensing_Server'
-        
-        self.control_launch = [
-            "/workspace/src/launch/control_launch.launch"]
-        self.perception_launch = [
-            "/workspace/src/launch/perception_launch.launch"]
-        self.planning_launch = [
-            "/workspace/src/launch/planning_launch.launch"]
-        self.sensing_launch = [
-            "/workspace/src/launch/sensing_launch.launch"]
-        
-        ### 0 is off, 1 is on
-        self.control_state = 0
-        self.perception_state = 0
-        self.sensing_state = 0
-        self.planning_state = 0
-        self.boss_state = 0
-
-        self.sub_package = ['/Control_Server']
-        self.sub_launch = [
-            "/workspace/src/launch/control_launch.launch"]
-        self.sub_launcher = launch_generator(self.sub_launch)
-        
-        self.sub_state = 0
-        self.sub_require_state = 0
-        self.process_state = 0
-        self.key = cv2.waitKey()
-
-        rospy.init_node('Boss_Server', anonymous=True)
+        rospy.init_node('Boss_Server', anonymous=False)
         self.rate = rospy.Rate(10) # 10hz
-        self.observation = Observing_Server()
-        self.nodes = self.observation.update_nodes_info()
-        self.keyboard_input = 'l'
-
-    def active_n_mode(self,):
-        if self.keyboard_input == 'a':
-            self.sub_require_state = 1
-        if self.keyboard_input == 'z':
-            self.sub_require_state = 0
-
-
-    def observe_node(self):
-        self.nodes = self.observation.update_nodes_info()
-        if self.sub_package[0] in self.nodes:
-            self.sub_state = 1
-        else:
-            self.sub_state = 0 
-
-    def switch_process_state(self):
-        if self.sub_state != self.sub_require_state:
-            self.process_state = 1
-        else:
-            self.process_state = 0
-
-    def execute_and_release(self,):
-        if self.sub_require_state == 1:
-            print('starting Launcher')
-            launcher_start(self.sub_launcher)
-        elif self.sub_require_state == 0:
-            ### input should be list [package1, package2, ...] ## a is given and will give z and q
-            print('Kill Nodes')
-            rosnode.kill_nodes(self.sub_package)
+        self.nodes = []
 
     def run(self):
+        keymap_on = {'a':0,'s':1,'d':2,'f':3}
+        keymap_off = {'z':0,'x':1,'c':2,'v':3}
         self.boss_state = 1
         while not rospy.is_shutdown() and self.boss_state == 1:
             print()
-            self.keyboard_input = getch_os.getch()
+            self.nodes = Observing_Server.update_nodes_info()
+            key_in = getch_os.getch()
 
-            if self.keyboard_input == 'q':
-                break
-            self.active_n_mode() ### keyboard to activate or deactivate packages
-            self.observe_node() ### observing node and change state
-            self.switch_process_state() ### judge the state goes process or not
-
-            if self.process_state == 1:
-                self.execute_and_release()
-                self.process_state = 0
-            else:
-                print('No Process')
+            # hrkim
+            if key_in in keymap_on:
+                node_name = list(self.node_launchpath_dict)[keymap_on[key_in]]
+                if node_name not in self.nodes:
+                    launcher_start(self.sub_launchers[keymap_on[key_in]])
+            elif key_in in keymap_off:
+                node_name = list(self.node_launchpath_dict)[keymap_off[key_in]]
+                my_kill_nodes(node_name)
 
             self.rate.sleep()
 
-            print(f'Sub state is {self.sub_state}')
-            print(f'Sub require is {self.sub_require_state}')
-            print(f'Sub process_state is {self.process_state}')
             print(f'Nodes is {self.nodes}')
-            self.keyboard_input = 'l'
-        print('Killing Nodes')
-        rosnode.kill_nodes(self.nodes)
-        test_clean()
-        print('Process End Safely')
-        
+
+        self.process_cleanup()
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
     test_temp = Boss_Lancher_Manager()
     test_temp.run()
 
