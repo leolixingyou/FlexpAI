@@ -24,7 +24,7 @@ def launch_f(launch_file_list):
     # finally:
     #     launch.shutdown()
 
-def launch_generator(launch_file_list):
+def launch_id_generator(launch_file_list):
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
     return roslaunch.parent.ROSLaunchParent(uuid, launch_file_list)

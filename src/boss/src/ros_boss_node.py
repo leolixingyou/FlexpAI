@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-import os
 import sys
-import cv2
 import signal
 import platform  # for get os info
 
@@ -11,7 +9,7 @@ import rosgraph
 from std_msgs.msg import String
 
 from informantion_observing import Observing_Server, \
-launch_generator, launcher_start, my_kill_nodes
+launch_id_generator, launcher_start, my_kill_nodes
 
 os_name = platform.platform().split('-')[0]
 if os_name == 'Linux':
@@ -56,10 +54,10 @@ class Boss_Lancher_Manager:
             '/Perception_Server':["/workspace/src/launch/perception_launch.launch"],
             '/Planning_Server':["/workspace/src/launch/planning_launch.launch"],
             '/Sensing_Server':["/workspace/src/launch/sensing_launch.launch"]}
-        self.sub_launchers = [launch_generator(v) for v in self.node_launchpath_dict.values()] # lambda 마려움
+        self.sub_launchers = [launch_id_generator(v) for v in self.node_launchpath_dict.values()] # lambda 마려움
         
         ### No Needs for same name with launch the using name defined by launcher
-        rospy.init_node('Boss_Server', anonymous=False)
+        rospy.init_node('Boss_Server', anonymous=True)
         self.rate = rospy.Rate(10) # 10hz
         self.nodes = []
 
@@ -92,7 +90,4 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     test_temp = Boss_Lancher_Manager()
     test_temp.run()
-
-
-        
         
