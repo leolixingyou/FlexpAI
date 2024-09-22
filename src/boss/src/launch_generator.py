@@ -5,11 +5,11 @@ import sys
 
 class Node_Launcher_Generator:
     def __init__(self, nodes_properties_dict):
-        rospy.init_node('Node_Launcher_Generator', anonymous=False)
-        self.processes = None
+        self.processes = []
         self.launcher = roslaunch.scriptapi.ROSLaunch()
         self.launcher.start()
         self.nodes_stand_by_dict = self.launch_node_setting(nodes_properties_dict)
+        self.node_names = nodes_properties_dict.keys()
 
     def nodes_properties_setting(self,node_properties):
         # Node setting
@@ -27,10 +27,8 @@ class Node_Launcher_Generator:
         return launch_process
 
     def launch_nodes(self,):
-        processes = []
         for node in self.nodes_stand_by_dict.values():
-            processes.append(self.launch_node(node))
-        return processes
+            self.processes.append(self.launch_node(node))
 
     def launch_node_setting(self, nodes_properties_dict) -> dict:
         """
@@ -91,9 +89,8 @@ class Node_Launcher_Generator:
         print("All nodes have been stopped.")
 
     def run(self):
-        self.processes = []
         try:
-            self.processes = self.launch_nodes()
+            self.launch_nodes()
             print("All nodes have been launched. Press Ctrl+C to stop.")
             rospy.spin()
         finally:
@@ -105,6 +102,7 @@ def signal_handler(signum, frame):
     sys.exit(0)
 
 if __name__ == '__main__':
+    rospy.init_node('Node_Launcher_Generator', anonymous=False)
     nodes_properties = {
 
         # 'Boss_Server' : 
