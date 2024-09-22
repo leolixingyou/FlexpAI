@@ -22,6 +22,10 @@ class Node_Launcher_Generator:
         )
         return node
 
+    def launch_start(self,):
+        self.launcher = roslaunch.scriptapi.ROSLaunch()
+        self.launcher.start()
+
     def launch_node(self, node):
         launch_process = self.launcher.launch(node)
         return launch_process
@@ -77,7 +81,7 @@ class Node_Launcher_Generator:
 
         @raise ValueError: if parameters do not validate
         """        
-
+        print(nodes_properties_dict)
         return {x:self.nodes_properties_setting(y) for x,y in nodes_properties_dict.items()}
 
     def shutdown(self):
