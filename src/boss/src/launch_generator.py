@@ -22,9 +22,15 @@ class Node_Launcher_Generator:
         )
         return node
 
-    def launch_nodes(self, node):
+    def launch_node(self, node):
         launch_process = self.launcher.launch(node)
         return launch_process
+
+    def launch_nodes(self,):
+        processes = []
+        for node in self.nodes_stand_by_dict.values():
+            processes.append(self.launch_node(node))
+        return processes
 
     def launch_node_setting(self, nodes_properties_dict) -> dict:
         """
@@ -87,7 +93,7 @@ class Node_Launcher_Generator:
     def run(self):
         self.processes = []
         try:
-            self.processes = [self.launch_nodes(x) for x in self.nodes.values()]
+            self.processes = self.launch_nodes()
             print("All nodes have been launched. Press Ctrl+C to stop.")
             rospy.spin()
         finally:
