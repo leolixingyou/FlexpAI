@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import signal
+import curses
 import platform  # for get os info
 
 import rospy
@@ -63,12 +64,26 @@ class Boss_Lancher_Manager(DestroyMan):
 
         self.modify_node_launcher_input(self.nodes_properties)
 
+        ## curses
+        self.screen = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        self.screen.keypad(True)
+        self.screen.nodelay(True)  # set to unblocking mode: True
+
         ### No Needs for same name with launch the using name defined by launcher
         rospy.init_node('Boss_Server', anonymous=False)
         self.rate = rospy.Rate(10) # 10hz
         self.nodes = []
         self.stopped_nodes = {}
     
+    def __del__(self):
+        # destory instance and recover terminal settings
+        curses.nocbreak()
+        self.screen.keypad(False)
+        curses.echo()
+        curses.endwin()
+
     def modify_node_launcher_input(self, nodes_properties):
         if self.mode == 'separate':
             self.node_launchers = {x:Node_Launcher_Generator({x:y}) for x,y in nodes_properties.items()}
@@ -88,18 +103,23 @@ class Boss_Lancher_Manager(DestroyMan):
         nodes = Observing_Server.update_nodes_info()
         rosnode.kill_nodes(nodes)
         rosnodes_my_cleanup()
+        self.__del__()
         print('Finally: Process End Safely')
 
     def run(self):
         keys_on = ['a', 's', 'd', 'f', 'g'] #5 launcher on are given
         keys_off = ['z', 'x', 'c', 'v', 'b'] #5 launcher off are given
-        keymap_on = {keys_on[i]:x for i, x in enumerate(self.node_launchers)}
-        keymap_off = {keys_off[i]:x for i, x in enumerate(self.node_launchers)}
+        keymap_on = {ord(keys_on[i]):x for i, x in enumerate(self.node_launchers)}
+        keymap_off = {ord(keys_off[i]):x for i, x in enumerate(self.node_launchers)}
 
         while not rospy.is_shutdown():
-            print()
+            print("Loop Start...")
             self.nodes = Observing_Server.update_nodes_info()
-            key_in = getch_os.getch()
+            # key_in = getch_os.getch()
+            key_in = self.screen.getch()
+            if key_in == -1:  # 没有按键输入
+                rospy.sleep(0.1)  # 短暂休眠以减少 CPU 使用
+                continue
 
             # launch generator
             if key_in in keymap_on:
