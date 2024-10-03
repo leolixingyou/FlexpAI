@@ -14,13 +14,12 @@ class Message_Manager:
         self.msgs.append(msg)
 
 class SensorListener:
-    def __init__(self, topic, msg_type, sensor_name):
-        self.topic = topic
-        self.msg_type = msg_type
-        self.sensor_name = sensor_name
-        rospy.Subscriber(topic, msg_type, self.callback)
+    def __init__(self, sub_topic, pub_topic, msg_type, sensor_name):
+        rospy.Subscriber(sub_topic, msg_type, self.callback)
+        self.pub_data = rospy.Publisher(pub_topic, msg_type, queue_size=1)
         self.bridge = CvBridge()
         self.msg_manager = Message_Manager()
+        self.sensor_data = None
         self.data_received = False
         
     def callback(self, msg):
@@ -32,37 +31,3 @@ class SensorListener:
             self.times = [x.header.stamp.nsecs for x in self.msg_manager.msgs]
             self.data_received = True
             
-class Camera_Image_Listener(SensorListener):
-    def __init__(self):
-        super().__init__('/carla/ego_vehicle/rgb_front/image', Image, 'camera')
-        
-    def msg_to_image(self):
-        if len(self.msg_manager.msgs) > 1:
-            self.data = self.msg_manager.msgs[-1]
-            self.data = self.bridge.imgmsg_to_cv2(self.data, "bgr8")
-            self.data_received = True
-            
-class LiDAR_PointCloud_Listener(SensorListener):
-    def __init__(self):
-        super().__init__('/carla/ego_vehicle/lidar', PointCloud2, 'lidar')
-        
-class GPS_GNSS_Listener(SensorListener):
-    def __init__(self):
-        super().__init__('/carla/ego_vehicle/gnss', NavSatFix, 'gnss')
-    
-    def gathering_msg(self):
-        if len(self.msg_manager.msgs) > 1:
-            self.datas = [[x.latitude, x.longitude, x.altitude] for x in self.msg_manager.msgs]
-            self.times = [x.header.stamp.nsecs for x in self.msg_manager.msgs]
-            self.data_received = True
-            
-
-class IMU_Motion_Listener(SensorListener):
-    def __init__(self):
-        super().__init__('/carla/ego_vehicle/imu', Imu, 'imu')
-
-    def gathering_msg(self):
-        if len(self.msg_manager.msgs) > 1:
-            self.datas = [[x.orientation.x, x.orientation.y, x.orientation.z, x.orientation.w] for x in self.msg_manager.msgs]
-            self.times = [x.header.stamp.nsecs for x in self.msg_manager.msgs]
-            self.data_received = True

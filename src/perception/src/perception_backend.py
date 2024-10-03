@@ -73,16 +73,16 @@ class Perception_Lancher_Manager:
     ### if sensor was shutdown then code will show errors.
     def run(self):
         while not rospy.is_shutdown() :
-            # testing
-            # self.img_showing()
-            
 
             self.data_gathering()
+            # TODO: later 2024.10.03.22:56
+            # if self.sensors_ready:
+            #     closest_idx = self.synchronization()
+            #     self.processing(closest_idx)
+            #     self.publishing()
+            
             if self.sensors_ready:
-                closest_idx = self.synchronization()
-                self.processing(closest_idx)
-                self.publishing()
-
+                1
             self.rate.sleep()
 
 if __name__ == "__main__":
