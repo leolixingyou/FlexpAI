@@ -1,6 +1,8 @@
 import sys
+import roslaunch
 import signal
 import rosnode
+import rosgraph
 from abc import ABC, abstractmethod
 
 class DestroyMan(ABC):

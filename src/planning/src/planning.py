@@ -5,7 +5,7 @@ import cv2
 
 class Planning_Lancher_Manager:
     def __init__(self) -> None:
-        rospy.init_node('Planning_Server', anonymous=True)
+        rospy.init_node('Planning_Server', anonymous=False)
         self.rate = rospy.Rate(1) # 10hz
 
     def run(self):

@@ -52,10 +52,7 @@ class Boss_Lancher_Manager(DestroyMan):
         'required':False,'output':'screen'},
         }
 
-        print('Please Choose mode for Launch \n \
-        \'Separate\': choose \'a\' \n \
-        \'runall\': choose \'s\' \
-        ')
+        print('Please Choose mode for Launch Separate: choose a runall: choose s')
         
         key_mode_map = {'a':0,'s':1}
         key_mode = getch_os.getch()
@@ -64,6 +61,7 @@ class Boss_Lancher_Manager(DestroyMan):
 
         self.modify_node_launcher_input(self.nodes_properties)
 
+        
         ## curses
         self.screen = curses.initscr()
         curses.noecho()
@@ -113,12 +111,12 @@ class Boss_Lancher_Manager(DestroyMan):
         keymap_off = {ord(keys_off[i]):x for i, x in enumerate(self.node_launchers)}
 
         while not rospy.is_shutdown():
-            print("Loop Start...")
             self.nodes = Observing_Server.update_nodes_info()
             # key_in = getch_os.getch()
             key_in = self.screen.getch()
-            if key_in == -1:  # 没有按键输入
-                rospy.sleep(0.1)  # 短暂休眠以减少 CPU 使用
+            
+            if key_in == -1:  # no input
+                rospy.sleep(0.1) 
                 continue
 
             # launch generator
@@ -153,8 +151,7 @@ class Boss_Lancher_Manager(DestroyMan):
                         self.stopped_nodes[node_name] = self.nodes_properties[node_name]
                         self.node_launchers.pop(node_name)
                         delet_list.append(node_name)
-                    # launcher.shutdown()
-                    ##There is launcher.shutdown(), So No need to kill nodes
+
                 elif node_name_idx == 'runall':
                     launcher = self.node_launchers[node_name_idx]
                     self.stopped_nodes[node_name_idx] = self.nodes_properties

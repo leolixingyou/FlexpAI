@@ -18,7 +18,7 @@ class Node_Launcher_Generator:
             node_type = node_properties['node_type'],
             name = node_properties['name'],
             required = node_properties['required'],
-            output = node_properties['output']
+            # output = node_properties['output']
         )
         return node
 

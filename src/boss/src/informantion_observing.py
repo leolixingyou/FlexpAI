@@ -9,7 +9,8 @@ class Observing_Server:
         pass
     
     def update_nodes_info():
-        return [x for x in rosnode.get_node_names() if x != '/rosout']
+        my_nodes = ['/Control_Server','/Sensing_Server','/Perception_Server','/Planning_Server','/Boss_Server',]
+        return [x for x in rosnode.get_node_names() for y in my_nodes if x == y]
 
     def run(self, input_top):
         packages = self.rp.list()
