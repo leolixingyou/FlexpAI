@@ -7,7 +7,7 @@ import numpy as np
 def visualize_spawn_points_on_map(spawn_transforms, map_image):
     # Extract coordinates and rotations
     coords = np.array([[t.location.x, -t.location.y, t.location.z] for t in spawn_transforms])
-    rotations = np.array([[t.rotation.pitch, t.rotation.roll, t.rotation.yaw] for t in spawn_transforms])
+    rotations = np.array([[t.rotation.pitch, t.rotation.roll, -t.rotation.yaw] for t in spawn_transforms])
 
     # Normalize coordinates to image size
     height, width = map_image.shape[:2]
