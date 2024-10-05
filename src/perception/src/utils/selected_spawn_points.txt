@@ -1,0 +1,156 @@
+Index: 32
+Location: X=119.94, Y=326.97, Z=0.30
+Rotation: Pitch=0.00, Yaw=180.00, Roll=0.00
+
+Index: 83
+Location: X=92.49, Y=314.89, Z=0.30
+Rotation: Pitch=0.00, Yaw=-90.00, Roll=0.00
+
+Index: 55
+Location: X=92.11, Y=299.78, Z=0.30
+Rotation: Pitch=0.00, Yaw=-90.00, Roll=0.00
+
+Index: 169
+Location: X=92.11, Y=285.25, Z=0.30
+Rotation: Pitch=0.00, Yaw=-90.00, Roll=0.00
+
+Index: 171
+Location: X=92.11, Y=275.34, Z=0.30
+Rotation: Pitch=0.00, Yaw=-90.00, Roll=0.00
+
+Index: 173
+Location: X=92.11, Y=263.01, Z=0.30
+Rotation: Pitch=0.00, Yaw=-90.00, Roll=0.00
+
+Index: 33
+Location: X=92.11, Y=247.16, Z=0.30
+Rotation: Pitch=0.00, Yaw=-90.00, Roll=0.00
+
+Index: 11
+Location: X=92.11, Y=227.22, Z=0.30
+Rotation: Pitch=0.00, Yaw=-90.00, Roll=0.00
+
+Index: 84
+Location: X=105.57, Y=199.44, Z=0.30
+Rotation: Pitch=0.00, Yaw=0.00, Roll=0.00
+
+Index: 137
+Location: X=121.78, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 153
+Location: X=132.91, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 27
+Location: X=142.36, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 154
+Location: X=151.12, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 59
+Location: X=161.10, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 156
+Location: X=170.82, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 25
+Location: X=181.17, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 45
+Location: X=194.46, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 85
+Location: X=210.87, Y=199.44, Z=0.30
+Rotation: Pitch=0.00, Yaw=0.00, Roll=0.00
+
+Index: 158
+Location: X=222.50, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 23
+Location: X=233.54, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 160
+Location: X=245.85, Y=198.76, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 20
+Location: X=258.26, Y=199.06, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 162
+Location: X=270.94, Y=199.06, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 165
+Location: X=283.02, Y=199.06, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 18
+Location: X=295.08, Y=199.06, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 167
+Location: X=307.40, Y=199.06, Z=0.30
+Rotation: Pitch=0.00, Yaw=-0.00, Roll=0.00
+
+Index: 92
+Location: X=334.73, Y=210.67, Z=0.30
+Rotation: Pitch=0.00, Yaw=90.00, Roll=0.00
+
+Index: 189
+Location: X=334.83, Y=226.65, Z=0.30
+Rotation: Pitch=0.00, Yaw=90.00, Roll=0.00
+
+Index: 211
+Location: X=335.49, Y=249.43, Z=0.30
+Rotation: Pitch=0.00, Yaw=90.00, Roll=0.00
+
+Index: 0
+Location: X=335.49, Y=273.74, Z=0.30
+Rotation: Pitch=0.00, Yaw=90.00, Roll=0.00
+
+Index: 233
+Location: X=335.49, Y=298.81, Z=0.30
+Rotation: Pitch=0.00, Yaw=90.00, Roll=0.00
+
+Index: 78
+Location: X=321.75, Y=326.26, Z=0.30
+Rotation: Pitch=0.00, Yaw=-180.00, Roll=0.00
+
+Index: 43
+Location: X=301.34, Y=327.05, Z=0.30
+Rotation: Pitch=0.00, Yaw=180.00, Roll=0.00
+
+Index: 41
+Location: X=262.60, Y=327.05, Z=0.30
+Rotation: Pitch=0.00, Yaw=180.00, Roll=0.00
+
+Index: 39
+Location: X=232.20, Y=326.97, Z=0.30
+Rotation: Pitch=0.00, Yaw=180.00, Roll=0.00
+
+Index: 79
+Location: X=212.64, Y=326.26, Z=0.30
+Rotation: Pitch=0.00, Yaw=-180.00, Roll=0.00
+
+Index: 37
+Location: X=199.95, Y=326.97, Z=0.30
+Rotation: Pitch=0.00, Yaw=180.00, Roll=0.00
+
+Index: 35
+Location: X=173.12, Y=326.97, Z=0.30
+Rotation: Pitch=0.00, Yaw=180.00, Roll=0.00
+
+Index: 30
+Location: X=142.92, Y=326.97, Z=0.30
+Rotation: Pitch=0.00, Yaw=180.00, Roll=0.00
+
