@@ -2,7 +2,6 @@ import cv2
 import carla
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 class SpawnPointSelector:
     def __init__(self, spawn_transforms, map_image):
