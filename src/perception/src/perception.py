@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import rospy
 from ros_tools import Camera_Image_Listener, LiDAR_PointCloud_Listener, GPS_GNSS_Listener, IMU_Motion_Listener
-
+# 2024.10.06.19:40 TODO: Remake later, no use at present
 class Perception_Lancher_Manager:
     def __init__(self) -> None:
         rospy.init_node('Sensing_Server', anonymous=False)
