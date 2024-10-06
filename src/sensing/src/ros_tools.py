@@ -24,7 +24,7 @@ class SensorListener:
     def __init__(self, sensor_info):
         sub_topic, pub_topic, msg_type = sensor_info
         rospy.Subscriber(sub_topic, msg_type, self.callback)
-        self.pub_data = rospy.Publisher(pub_topic, msg_type, queue_size=1)
+        self.pub_msg = rospy.Publisher(pub_topic, msg_type, queue_size=1)
         self.bridge = CvBridge()
         self.msg_manager = Message_Manager()
         self.sensor_data = None
@@ -51,7 +51,7 @@ class Camera_Image_Listener(SensorListener):
 
     def pub_img(self, image):
         data = self.bridge.cv2_to_imgmsg(image, "bgr8")
-        self.pub_data.publish(data)
+        self.pub_msg.publish(data)
 
     def gathering_msg(self):
         if len(self.msg_manager.msgs) > 1:
@@ -73,9 +73,9 @@ class GPS_GNSS_Listener(SensorListener):
             self.times = [x.header.stamp.nsecs for x in self.msg_manager.msgs]
             self.data_received = True
     
-    def pub_msg(self, ):
+    def pub_gps_msg(self, ):
         if len(self.msg_manager.msgs) >1:
-            self.pub_data.publish(self.msg_manager.msgs[-1])
+            self.pub_msg.publish(self.msg_manager.msgs[-1])
 
 
 class IMU_Motion_Listener(SensorListener):

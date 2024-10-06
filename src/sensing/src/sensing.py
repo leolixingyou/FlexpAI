@@ -25,7 +25,7 @@ class Sensing_Lancher_Manager:
 
     def publishing(self,):
         # Publish the ego_car([x,y,z], heading, ), obstacles([x,y,z], heading, velocity(state)), lane coordinats...   
-        self.gps_listener.pub_msg()
+        self.gps_listener.pub_gps_msg()
 
 
     ### if sensor was shutdown then code will show errors.
