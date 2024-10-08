@@ -2,7 +2,10 @@
 
 Path tracking simulation with iterative linear model predictive control for speed and steer control
 
-author: Atsushi Sakai (@Atsushi_twi)
+author: Li Xingyou
+
+Run MPC_Controller.run
+Get waypoint from load_arrays_from_file
 
 """
 import matplotlib.pyplot as plt
@@ -912,7 +915,6 @@ def quaternion_to_yaw_library(x, y, z, w):
     return euler[2]  # Yaw is the third element
 
 
-
 class MPC_Controller:
     def __init__(self, isPlot = False) -> None:
         rospy.init_node('Control_MPC', anonymous=False)
@@ -1024,15 +1026,18 @@ class MPC_Controller:
 
             if self.gps_listener.data_received:
                 location = self.gps_listener.datas[-1]
+                ## convert gnss to utm
                 easting, northing, zone = self.gps_converter.convert(location[0], location[1])
                 # easting, northing, zone = (location[0]) * 100000, (location[1]) * 100000, 1 # gnss
                 self.isGPSGet = True
 
+            ## for calculate yaw from gnss : No use
             if self.isGPSGet:
                 yaw = self.yaw_convertor.update(easting, northing)
                 if yaw != None:
                     self.isYAWGet = True
 
+            ## Get vehicle info: Speed, Orientation-> yaw
             if self.ego_vehicle.data_received:
                 data = self.ego_vehicle.datas[-1]
                 speed = data.velocity
