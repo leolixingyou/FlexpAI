@@ -15,6 +15,8 @@ import cvxpy
 import math
 import numpy as np
 import sys
+from simple_pid import PID
+
 from scipy.spatial.transform import Rotation as Rot
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
@@ -835,10 +837,18 @@ def get_path(waypoints, dl=1):
     return cx, cy, cyaw, ck
 
 def angle_norm(yaw_angle):
-    return  yaw_angle / MAX_STEER 
+    """
+    yaw_angle range is -1 ~ 1 
+    """
+    yaw_norm = np.abs(yaw_angle) / MAX_STEER
+    yaw_norm = yaw_norm if yaw_angle >= 0 else -yaw_norm
+
+    return yaw_norm
 
 def accelerate_norm(acc_current):
-    return  acc_current / MAX_ACCEL
+    acc_norm = np.abs(acc_current) / MAX_ACCEL
+    acc_norm = acc_norm if acc_current >= 0 else -acc_norm
+    return acc_norm
 
 def plot_array_data(data):
     # Convert the list of arrays to a numpy array
@@ -870,7 +880,8 @@ def plot_array_data(data):
 
 def set_mpc_option():
     getinfo = GetControlInputInfo()
-    lat, lon, yaw, speed = getinfo.run()
+    infos = getinfo.run()
+    lat, lon, yaw, speed, throttle, brake, steering = infos
 
     dl = 1.0  # course tick
     waypoints = load_arrays_from_file()
@@ -880,12 +891,30 @@ def set_mpc_option():
     ### speed profile for mpc
     sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
     initial_state = State(x=lat, y=lon, yaw=yaw, v=speed)
-    return cx, cy, cyaw, ck, sp, dl, initial_state, lat, lon, yaw, speed
+    options = [cx, cy, cyaw, ck, sp, dl, initial_state, lat, lon, yaw, speed]
+    return options, getinfo
 
 class Control2Carla:
     def __init__(self, platform) -> None:
         vehicle = VehicleConfig(platform)
         self.ego_vehicle_controller = Ctrl_CV_CarlaEgoVehicelControl(vehicle.vehicle_config['Ego_Control'])
+
+        # Create PID controllers for throttle, brake, and steering
+        # Only P control is used (Ki and Kd are set to 0)
+        self.throttle_pid = PID(Kp=10, Ki=0, Kd=0, setpoint=0, output_limits=(0, 1))
+        self.brake_pid = PID(Kp=10, Ki=0, Kd=0, setpoint=0, output_limits=(0, 1))
+        self.steering_pid = PID(Kp=10, Ki=0, Kd=0, setpoint=0, output_limits=(-1, 1))
+
+    # Function to update control outputs
+    def update_controls(self, throttle_input, brake_input, steering_input):
+        # Calculate control outputs
+        throttle_output = self.throttle_pid(throttle_input)
+        brake_output = self.brake_pid(brake_input)
+        steering_output = self.steering_pid(steering_input)
+        
+        return round(throttle_output,2), round(brake_output,2), round(steering_output,2),
+
+    # def pid_scratch(self,):
 
 class MPC_Controller():
     def __init__(self, initial_state, isPlot = False) -> None:
@@ -908,7 +937,12 @@ class MPC_Controller():
     def pub_msg(self, control_dict):
         self.control2carla.ego_vehicle_controller.pub_control_msg(control_dict)
 
-    def update_control_dict(self, di, ai):
+    def update_pid_setpoint(self, throttle, brake, steering_norm):
+        self.control2carla.throttle_pid.setpoint = throttle
+        self.control2carla.brake_pid.setpoint = brake
+        self.control2carla.steering_pid.setpoint = steering_norm
+
+    def update_control_dict(self, di, ai, throttle_current, brake_current, steering_current):
 
         steering_norm = angle_norm(di)
         acc_norm = accelerate_norm(ai)
@@ -919,11 +953,15 @@ class MPC_Controller():
         else:
             throttle = 0
             brake = -acc_norm
+        
+        self.update_pid_setpoint(throttle, brake, steering_norm)
+        throttle_p, brake_p, steering_p = self.control2carla.update_controls(throttle_current, brake_current, steering_current)
+        # throttle_p, brake_p, steering_p = throttle, brake, steering_norm
 
         control_data = {
-            'throttle': throttle,
-            'brake': brake,
-            'steer': steering_norm,
+            'throttle': throttle_p,
+            'brake': brake_p,
+            'steer': steering_p,
             'hand_brake': False,
             'reverse': False,
             'gear': 0,
@@ -931,7 +969,7 @@ class MPC_Controller():
         }
         return control_data
 
-    def do_mpc(self, cx, cy, cyaw, ck, sp, dl, lat, lon, yaw, speed):
+    def do_mpc(self, options, getinfo):
         """
         Simulation
         Modified: Li Xingyou
@@ -943,6 +981,8 @@ class MPC_Controller():
         dl: course tick [m]
 
         """
+        cx, cy, cyaw, ck, sp, dl, _, lat, lon, yaw, speed = options
+
         # initial yaw compensation
         if self.state.yaw - cyaw[0] >= math.pi:
             self.state.yaw -= math.pi * 2.0
@@ -954,8 +994,11 @@ class MPC_Controller():
         target_ind, _ = calc_nearest_index(self.state, cx, cy, cyaw, 0)
         odelta, oa = None, None
         goal = [cx[-1], cy[-1]]
+        self.isRuningMPC = True
+        while self.isRuningMPC:
+            infos = getinfo.run()
+            lat, lon, yaw, speed, throttle, brake, steering = infos
 
-        while MAX_TIME >= time:
             xref, target_ind, dref = calc_ref_trajectory(
                 self.state, cx, cy, cyaw, ck, sp, dl, target_ind)
 
@@ -967,24 +1010,25 @@ class MPC_Controller():
             di, ai = 0.0, 0.0
             if odelta is not None:
                 di, ai = odelta[0], oa[0] # delta is steering, a is accelerate
+
                 self.state = update_state_carla(self.state, lat, lon, yaw, speed)
             else:
                 di, ai = None, None
 
             time += DT
 
-            control_data = self.update_control_dict(di, ai)
+            control_data = self.update_control_dict(di, ai, throttle, brake, steering)
             self.pub_msg(control_data)
 
             # Break the loop if goal is reached
-            if check_goal(self.state, goal, target_ind, len(cx)):
+            if check_goal(self.state, goal, target_ind, len(cx)) or MAX_TIME < time:
                 print("Goal reached")
                 break
 
             # Add a small delay to control the loop rate
         self.isRuningMPC = False
 
-    def do_simulation(self, cx, cy, cyaw, ck, sp, dl):
+    def do_simulation(self, options):
         """
         Simulation
 
@@ -996,6 +1040,7 @@ class MPC_Controller():
         dl: course tick [m]
 
         """
+        cx, cy, cyaw, ck, sp, dl, _, _, _, _, _ = options
 
         goal = [cx[-1], cy[-1]]
 
@@ -1068,7 +1113,6 @@ class MPC_Controller():
                         + ", acc[m/s^2]:" + str(round(ai, 2))
                         + ", steering[rad]:" + str(round(di, 2)))
                 plt.pause(0.0001)
-        self.isRuningMPC = False
 
         return t, x, y, yaw, v, d, a
 
@@ -1086,11 +1130,11 @@ class GetControlInputInfo:
         self.isVEHGet = False
         self.isYAWGet = False
 
-    def update(self, lat, lon, yaw_degree, speed):
-        self.lat, self.lon, self.yaw, self.speed = lat, lon, yaw_degree, speed
+    def update(self, infos):
+        self.infos= infos
 
     def get_info(self,):
-        return self.lat, self.lon, self.yaw, self.speed
+        return self.infos
 
     def run(self,):
         while not rospy.is_shutdown():
@@ -1117,11 +1161,15 @@ class GetControlInputInfo:
             if self.ego_vehicle_listner.data_received:
                 data = self.ego_vehicle_listner.datas[-1]
                 speed = data.velocity
+                throttle = data.control.throttle
+                brake = data.control.brake
+                steering = data.control.steer
                 self.isVEHGet = True
 
             if self.isODEMGet and self.isVEHGet:
                 print(f'here is {__file__}')
-                self.update(lat, lon, yaw_degree, speed, )
+                infos = [lat, lon, yaw_degree, speed, throttle, brake, steering] # if needs modify here to add or delete infos
+                self.update(infos)
                 return self.get_info()
 
 def test_example_run(getinfo):
@@ -1130,10 +1178,11 @@ def test_example_run(getinfo):
     
 def test_example_run_mpc(show_animation = False):
     rospy.init_node('Test_mpc_controller')
-    cx, cy, cyaw, ck, sp, dl, initial_state, _, _, _, _ = set_mpc_option()
-    
+    options, _ = set_mpc_option()
+    initial_state = options[6]
+
     mpc_controller = MPC_Controller(initial_state)
-    t, x, y, yaw, v, d, a = mpc_controller.do_simulation(cx, cy, cyaw, ck, sp, dl)
+    t, x, y, yaw, v, d, a = mpc_controller.do_simulation(options)
 
     if show_animation:  # pragma: no cover
         plt.close("all")
@@ -1156,10 +1205,12 @@ def test_example_run_mpc(show_animation = False):
 
 def test_example_pub_with_mpc():
     rospy.init_node('Test_mpc_pub')
-    cx, cy, cyaw, ck, sp, dl, initial_state, lat, lon, yaw, speed = set_mpc_option()
+    options, getinfo = set_mpc_option()
+    initial_state = options[6]
+
 
     mpc_controller = MPC_Controller(initial_state)
-    t, x, y, yaw, v, d, a = mpc_controller.do_mpc(cx, cy, cyaw, ck, sp, dl, lat, lon, yaw, speed)
+    mpc_controller.do_mpc(options, getinfo)
 
 if __name__ == '__main__':
     unit_tests = ['getinfo', 'readwaypoints', 'mpc_controller', 'control2carla', ]
@@ -1169,7 +1220,7 @@ if __name__ == '__main__':
         rospy.init_node('Test_getinfo')
         getinfo = GetControlInputInfo()
         # getinfo.run()
-        lat, lon, yaw, speed = test_example_run(getinfo)
+        lat, lon, yaw, speed, throttle, brake, steering = test_example_run(getinfo)
         print()
 
     if unit_test == 'readwaypoints':
@@ -1183,4 +1234,5 @@ if __name__ == '__main__':
 
     if unit_test == 'control2carla':
         test_example_pub_with_mpc()
+        rospy.sleep(10)
 
