@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 
 Path tracking simulation with iterative linear model predictive control for speed and steer control
@@ -19,11 +20,11 @@ import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
 
 from pyproj import Transformer
-from ros_tools import *
 import bisect
 from geometry_msgs.msg import Twist
-from yaw_converter import GPSYawCalculator
 from transforms3d.euler import quat2euler
+
+from ros_tools import *
 
 NX = 4  # x = x, y, v, yaw
 NU = 2  # a = [accel, steer]
@@ -42,7 +43,7 @@ MAX_TIME = 500.0  # max simulation time
 MAX_ITER = 3  # Max iteration
 DU_TH = 0.1  # iteration finish param
 
-TARGET_SPEED = 10.0 / 3.6  # [m/s] target speed
+TARGET_SPEED = 15.0 / 3.6  # [m/s] target speed
 N_IND_SEARCH = 10  # Search index number
 
 DT = 0.2  # [s] time tick
@@ -756,7 +757,7 @@ def check_goal(state, goal, tind, nind):
     dy = state.y - goal[1]
     d = math.hypot(dx, dy)
 
-    isgoal = (d <= GOAL_DIS)
+    isgoal = (d <= GOAL_DIS or any(x < 0 for x in [dx,dy]))
 
     if abs(tind - nind) >= 5:
         isgoal = False
@@ -767,95 +768,6 @@ def check_goal(state, goal, tind, nind):
         return True
 
     return False
-
-def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state, easting, northing, yaw_radians_lib, speed):
-    """
-    Simulation
-
-    cx: course x position list
-    cy: course y position list
-    cy: course yaw position list
-    ck: course curvature list
-    sp: speed profile
-    dl: course tick [m]
-
-    """
-
-    goal = [cx[-1], cy[-1]]
-
-    state = initial_state
-
-    # initial yaw compensation
-    if state.yaw - cyaw[0] >= math.pi:
-        state.yaw -= math.pi * 2.0
-    elif state.yaw - cyaw[0] <= -math.pi:
-        state.yaw += math.pi * 2.0
-
-    time = 0.0
-    x = [state.x]
-    y = [state.y]
-    yaw = [state.yaw]
-    v = [state.v]
-    t = [0.0]
-    d = [0.0]
-    a = [0.0]
-    target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
-
-    odelta, oa = None, None
-
-    cyaw = smooth_yaw(cyaw)
-
-    while MAX_TIME >= time:
-        xref, target_ind, dref = calc_ref_trajectory(
-            state, cx, cy, cyaw, ck, sp, dl, target_ind)
-
-        x0 = [state.x, state.y, state.v, state.yaw]  # current state
-
-        oa, odelta, ox, oy, oyaw, ov = iterative_linear_mpc_control(
-            xref, x0, dref, oa, odelta)
-
-        di, ai = 0.0, 0.0
-        if odelta is not None:
-            di, ai = odelta[0], oa[0]
-            # state = update_state(state, ai, di)
-            state = update_state_carla(state, easting, northing, yaw_radians_lib, speed)
-
-        time = time + DT
-
-        x.append(state.x)
-        y.append(state.y)
-        yaw.append(state.yaw)
-        v.append(state.v)
-        t.append(time)
-        d.append(di)
-        a.append(ai)
-
-        if check_goal(state, goal, target_ind, len(cx)):
-            print("Goal")
-            break
-
-        if show_animation:  # pragma: no cover
-            plt.cla()
-            # for stopping simulation with the esc key.
-            plt.gcf().canvas.mpl_connect('key_release_event',
-                    lambda event: [exit(0) if event.key == 'escape' else None])
-            if ox is not None:
-                plt.plot(ox, oy, "xr", label="MPC")
-            plt.plot(cx, cy, "-r", label="course")
-            plt.plot(x, y, "ob", label="trajectory")
-            plt.plot(xref[0, :], xref[1, :], "xk", label="xref")
-            plt.plot(cx[target_ind], cy[target_ind], "xg", label="target")
-            plot_car(state.x, state.y, state.yaw, steer=di)
-            plt.axis("equal")
-            plt.grid(True)
-            plt.title("Time[s]:" + str(round(time, 2))
-                      + ", speed[km/h]:" + str(round(state.v * 3.6, 2))
-                      + ", acc[m/s^2]:" + str(round(ai, 2))
-                      + ", steering[rad]:" + str(round(di, 2)))
-            plt.legend()
-            plt.pause(0.0001)
-
-    return t, x, y, yaw, v, d, a
 
 def calc_speed_profile(cx, cy, cyaw, target_speed):
 
@@ -928,104 +840,261 @@ def angle_norm(yaw_angle):
 def accelerate_norm(acc_current):
     return  acc_current / MAX_ACCEL
 
-class MPC_Controller:
-    def __init__(self, isPlot = False) -> None:
-        rospy.init_node('Control_MPC', anonymous=False)
-        self.isRuningMPC = False
-        self.cmd_pub = rospy.Publisher('/Ctrl_CV/control/mpc', Twist, queue_size=1)
+def plot_array_data(data):
+    # Convert the list of arrays to a numpy array
+    points = np.array(data)
+    
+    # Extract x and y coordinates
+    x = points[:, 0]
+    y = points[:, 1]
+    
+    # Create a new figure
+    plt.figure(figsize=(10, 6))
+    
+    # Plot the points
+    plt.scatter(x, y, color='blue', s=50)
+    
+    # Plot lines connecting the points
+    plt.plot(x, y, color='red', linestyle='--')
+    
+    # Set labels and title
+    plt.xlabel('X-axis')
+    plt.ylabel('Y-axis')
+    plt.title('Plot of Array Data')
+    
+    # Add grid lines
+    plt.grid(True, linestyle=':')
+    
+    # Show the plot
+    plt.show()
 
-        self.pattern = ['ros', 'sim'][0]
+def set_mpc_option():
+    getinfo = GetControlInputInfo()
+    lat, lon, yaw, speed = getinfo.run()
+
+    dl = 1.0  # course tick
+    waypoints = load_arrays_from_file()
+
+    ### local path planning -> spline generation
+    cx, cy, cyaw, ck = get_path(waypoints, dl)
+    ### speed profile for mpc
+    sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
+    initial_state = State(x=lat, y=lon, yaw=yaw, v=speed)
+    return cx, cy, cyaw, ck, sp, dl, initial_state, lat, lon, yaw, speed
+
+class Control2Carla:
+    def __init__(self, platform) -> None:
+        vehicle = VehicleConfig(platform)
+        self.ego_vehicle_controller = Ctrl_CV_CarlaEgoVehicelControl(vehicle.vehicle_config['Ego_Control'])
+
+class MPC_Controller():
+    def __init__(self, initial_state, isPlot = False) -> None:
+        self.isRuningMPC = False
+        self.isPlot = isPlot        
+        self.state = initial_state
+
+        self.control2carla = Control2Carla('carla')
+
+        self.control_data = {
+            'throttle': 0.0,
+            'brake': 0.0,
+            'steer': 0.0,
+            'hand_brake': False,
+            'reverse': False,
+            'gear': 0,
+            'manual_gear_shift': False
+        }
+
+    def pub_msg(self, control_dict):
+        self.control2carla.ego_vehicle_controller.pub_control_msg(control_dict)
+
+    def update_control_dict(self, di, ai):
+
+        steering_norm = angle_norm(di)
+        acc_norm = accelerate_norm(ai)
+
+        if acc_norm >= 0:
+            throttle = acc_norm
+            brake = 0
+        else:
+            throttle = 0
+            brake = -acc_norm
+
+        control_data = {
+            'throttle': throttle,
+            'brake': brake,
+            'steer': steering_norm,
+            'hand_brake': False,
+            'reverse': False,
+            'gear': 0,
+            'manual_gear_shift': False
+        }
+        return control_data
+
+    def do_mpc(self, cx, cy, cyaw, ck, sp, dl, lat, lon, yaw, speed):
+        """
+        Simulation
+        Modified: Li Xingyou
+        cx: course x position list (any)
+        cy: course y position list (any)
+        cyaw: course yaw position list (radian)
+        ck: course curvature list
+        sp: speed profile
+        dl: course tick [m]
+
+        """
+        # initial yaw compensation
+        if self.state.yaw - cyaw[0] >= math.pi:
+            self.state.yaw -= math.pi * 2.0
+        elif self.state.yaw - cyaw[0] <= -math.pi:
+            self.state.yaw += math.pi * 2.0
+        cyaw = smooth_yaw(cyaw)
+
+        time = 0.0
+        target_ind, _ = calc_nearest_index(self.state, cx, cy, cyaw, 0)
+        odelta, oa = None, None
+        goal = [cx[-1], cy[-1]]
+
+        while MAX_TIME >= time:
+            xref, target_ind, dref = calc_ref_trajectory(
+                self.state, cx, cy, cyaw, ck, sp, dl, target_ind)
+
+            x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]  # current state
+
+            oa, odelta, ox, oy, oyaw, ov = iterative_linear_mpc_control(
+                xref, x0, dref, oa, odelta)
+
+            di, ai = 0.0, 0.0
+            if odelta is not None:
+                di, ai = odelta[0], oa[0] # delta is steering, a is accelerate
+                self.state = update_state_carla(self.state, lat, lon, yaw, speed)
+            else:
+                di, ai = None, None
+
+            time += DT
+
+            control_data = self.update_control_dict(di, ai)
+            self.pub_msg(control_data)
+
+            # Break the loop if goal is reached
+            if check_goal(self.state, goal, target_ind, len(cx)):
+                print("Goal reached")
+                break
+
+            # Add a small delay to control the loop rate
+        self.isRuningMPC = False
+
+    def do_simulation(self, cx, cy, cyaw, ck, sp, dl):
+        """
+        Simulation
+
+        cx: course x position list
+        cy: course y position list
+        cy: course yaw position list
+        ck: course curvature list
+        sp: speed profile
+        dl: course tick [m]
+
+        """
+
+        goal = [cx[-1], cy[-1]]
+
+        state = self.state
+
+        # initial yaw compensation
+        if state.yaw - cyaw[0] >= math.pi:
+            state.yaw -= math.pi * 2.0
+        elif state.yaw - cyaw[0] <= -math.pi:
+            state.yaw += math.pi * 2.0
+
+        time = 0.0
+        x = [state.x]
+        y = [state.y]
+        yaw = [state.yaw]
+        v = [state.v]
+        t = [0.0]
+        d = [0.0]
+        a = [0.0]
+        target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
+
+        odelta, oa = None, None
+
+        cyaw = smooth_yaw(cyaw)
+
+        while MAX_TIME >= time:
+            xref, target_ind, dref = calc_ref_trajectory(
+                state, cx, cy, cyaw, ck, sp, dl, target_ind)
+
+            x0 = [state.x, state.y, state.v, state.yaw]  # current state
+
+            oa, odelta, ox, oy, oyaw, ov = iterative_linear_mpc_control(
+                xref, x0, dref, oa, odelta)
+
+            di, ai = 0.0, 0.0
+            if odelta is not None:
+                di, ai = odelta[0], oa[0]
+                state = update_state(state, ai, di)
+
+            time = time + DT
+
+            x.append(state.x)
+            y.append(state.y)
+            yaw.append(state.yaw)
+            v.append(state.v)
+            t.append(time)
+            d.append(di)
+            a.append(ai)
+
+            if check_goal(state, goal, target_ind, len(cx)):
+                print("Goal")
+                break
+
+            if show_animation:  # pragma: no cover
+                plt.cla()
+                # for stopping simulation with the esc key.
+                plt.gcf().canvas.mpl_connect('key_release_event',
+                        lambda event: [exit(0) if event.key == 'escape' else None])
+                if ox is not None:
+                    plt.plot(ox, oy, "xr", label="MPC")
+                plt.plot(cx, cy, "-r", label="course")
+                plt.plot(x, y, "ob", label="trajectory")
+                plt.plot(xref[0, :], xref[1, :], "xk", label="xref")
+                plt.plot(cx[target_ind], cy[target_ind], "xg", label="target")
+                plot_car(state.x, state.y, state.yaw, steer=di)
+                plt.axis("equal")
+                plt.grid(True)
+                plt.title("Time[s]:" + str(round(time, 2))
+                        + ", speed[km/h]:" + str(round(state.v * 3.6, 2))
+                        + ", acc[m/s^2]:" + str(round(ai, 2))
+                        + ", steering[rad]:" + str(round(di, 2)))
+                plt.pause(0.0001)
+        self.isRuningMPC = False
+
+        return t, x, y, yaw, v, d, a
+
+class GetControlInputInfo:
+    def __init__(self) -> None:
         platform = 'carla'
         sensors = SensorConfig(platform)
 
         vehicle = VehicleConfig(platform)
-        self.ego_vehicle = CarlaEgoVehicle_Listener(vehicle.vehicle_config['Ego'])
+        self.ego_vehicle_listner = CarlaEgoVehicle_Listener(vehicle.vehicle_config['Ego_Status'])
 
-        self.yaw_convertor = GPSYawCalculator()
         self.odem_listener = Odem_Listener(sensors.sensor_config['Odem'])
 
-        self.isPlot = isPlot        
         self.isODEMGet = False
         self.isVEHGet = False
         self.isYAWGet = False
 
-    def load_path_data(self, filename='/workspace/src/control/ws_mpc/odm_x_y_yaw_abs_log_7_straight.txt'):
-        data = np.loadtxt(filename, delimiter=',', skiprows=1)
-        cx, cy, cyaw, ck = data.T
-        return cx, cy, cyaw, ck
-        
-    def do_mpc(self, cx, cy, cyaw, ck, sp, dl, initial_state, easting, northing, yaw_radians_lib, speed):
-            """
-            Simulation
-            Modified: Li Xingyou
-            cx: course x position list (any)
-            cy: course y position list (any)
-            cyaw: course yaw position list (radian)
-            ck: course curvature list
-            sp: speed profile
-            dl: course tick [m]
+    def update(self, lat, lon, yaw_degree, speed):
+        self.lat, self.lon, self.yaw, self.speed = lat, lon, yaw_degree, speed
 
-            """
-            goal = [cx[-1], cy[-1]]
-            state = initial_state
+    def get_info(self,):
+        return self.lat, self.lon, self.yaw, self.speed
 
-            # initial yaw compensation
-            if state.yaw - cyaw[0] >= math.pi:
-                state.yaw -= math.pi * 2.0
-            elif state.yaw - cyaw[0] <= -math.pi:
-                state.yaw += math.pi * 2.0
-
-            time = 0.0
-
-            target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
-
-            odelta, oa = None, None
-
-            cyaw = smooth_yaw(cyaw)
-
-            while MAX_TIME >= time:
-                xref, target_ind, dref = calc_ref_trajectory(
-                    state, cx, cy, cyaw, ck, sp, dl, target_ind)
-
-                x0 = [state.x, state.y, state.v, state.yaw]  # current state
-
-                oa, odelta, ox, oy, oyaw, ov = iterative_linear_mpc_control(
-                    xref, x0, dref, oa, odelta)
-
-                di, ai = 0.0, 0.0
-                if odelta is not None:
-                    di, ai = odelta[0], oa[0] # delta is steering, a is accelerate
-                    state = update_state_carla(state, easting, northing, yaw_radians_lib, speed)
-                else:
-                    di, ai = None, None
-
-                if di != None and ai != None:
-                    # write_log([di, ai, easting, northing, speed, steering],'/workspace/src/control/src/do_carla_data.txt')
-                    twist_msg = Twist()
-                    twist_msg.linear.x = ai if ai is not None else 0.0  # Set acceleration as linear velocity
-                    twist_msg.angular.z = angle_norm(di) if di is not None else 0.0  # Set steering as angular velocity
-                    self.cmd_pub.publish(twist_msg)
-
-                time += DT
-
-                # Break the loop if goal is reached
-                if check_goal(state, goal, target_ind, len(cx)):
-                    print("Goal reached")
-                    break
-
-                # Add a small delay to control the loop rate
-            self.isRuningMPC = False
-
-    def run(self, waypoints):
-        print(__file__ + " start!!")
-        start = time.time()
-
-        dl = 1.0  # course tick
-        cx, cy, cyaw, ck = get_path(waypoints, dl)
-        sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
-
+    def run(self,):
         while not rospy.is_shutdown():
-            self.ego_vehicle.gathering_msg()
+            self.ego_vehicle_listner.gathering_msg()
             self.odem_listener.gathering_msg()
 
             if self.odem_listener.data_received:
@@ -1039,58 +1108,79 @@ class MPC_Controller:
                     last_location_orientation.x,
                     last_location_orientation.y,
                     last_location_orientation.z])
-                yaw_degree = yaw
+                yaw_degree = yaw # radian
                 # yaw_degree = math.degrees(yaw)
 
                 self.isODEMGet = True
 
             ## Get vehicle info: Speed, Orientation-> yaw
-            if self.ego_vehicle.data_received:
-                data = self.ego_vehicle.datas[-1]
+            if self.ego_vehicle_listner.data_received:
+                data = self.ego_vehicle_listner.datas[-1]
                 speed = data.velocity
                 self.isVEHGet = True
 
+            if self.isODEMGet and self.isVEHGet:
+                print(f'here is {__file__}')
+                self.update(lat, lon, yaw_degree, speed, )
+                return self.get_info()
 
-            if not self.isRuningMPC and self.isODEMGet and self.isVEHGet:
-                initial_state = State(x=lat, y=lon, yaw=yaw_degree, v=speed)
-                if self.pattern == 'ros':
-                    self.isRuningMPC = True
-                    print(__file__ + " start!!")
-                    spline = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
+def test_example_run(getinfo):
+    ## Get lat, lon, yaw, speed
+    return getinfo.run()
+    
+def test_example_run_mpc(show_animation = False):
+    rospy.init_node('Test_mpc_controller')
+    cx, cy, cyaw, ck, sp, dl, initial_state, _, _, _, _ = set_mpc_option()
+    
+    mpc_controller = MPC_Controller(initial_state)
+    t, x, y, yaw, v, d, a = mpc_controller.do_simulation(cx, cy, cyaw, ck, sp, dl)
 
-                    t, x, y, yaw, v, d, a = self.do_mpc(
-                        cx, cy, cyaw, ck, spline, dl, initial_state, lat, lon, yaw_degree, speed)
+    if show_animation:  # pragma: no cover
+        plt.close("all")
+        plt.subplots()
+        plt.plot(cx, cy, "-r", label="spline")
+        plt.plot(x, y, "-g", label="tracking")
+        plt.grid(True)
+        plt.axis("equal")
+        plt.xlabel("x[m]")
+        plt.ylabel("y[m]")
+        plt.legend()
 
-                if self.pattern == 'sim':
-                    t, x, y, yaw, v, d, a = do_simulation(
-                        cx, cy, cyaw, ck, sp, dl, initial_state, lat, lon, yaw_degree, speed)
-                    break
-        elapsed_time = time.time() - start
-        print(f"calc time:{elapsed_time:.6f} [sec]")
+        plt.subplots()
+        plt.plot(t, v, "-r", label="speed")
+        plt.grid(True)
+        plt.xlabel("Time [s]")
+        plt.ylabel("Speed [kmh]")
 
-        if show_animation:  # pragma: no cover
-            plt.close("all")
-            plt.subplots()
-            plt.plot(cx, cy, "-r", label="spline")
-            plt.plot(x, y, "-g", label="tracking")
-            plt.grid(True)
-            plt.axis("equal")
-            plt.xlabel("x[m]")
-            plt.ylabel("y[m]")
-            plt.legend()
+        plt.show()
 
-            plt.subplots()
-            plt.plot(t, v, "-r", label="speed")
-            plt.grid(True)
-            plt.xlabel("Time [s]")
-            plt.ylabel("Speed [kmh]")
+def test_example_pub_with_mpc():
+    rospy.init_node('Test_mpc_pub')
+    cx, cy, cyaw, ck, sp, dl, initial_state, lat, lon, yaw, speed = set_mpc_option()
 
-            plt.show()
+    mpc_controller = MPC_Controller(initial_state)
+    t, x, y, yaw, v, d, a = mpc_controller.do_mpc(cx, cy, cyaw, ck, sp, dl, lat, lon, yaw, speed)
 
 if __name__ == '__main__':
-    mpc = MPC_Controller()
-    # cx, cy, cyaw, ck = mpc.load_path_data()
-    waypoints = load_arrays_from_file()
-    mpc.run(waypoints)
-    # main()
-    # main2()
+    unit_tests = ['getinfo', 'readwaypoints', 'mpc_controller', 'control2carla', ]
+    unit_test = unit_tests[3]
+
+    if unit_test == 'getinfo':
+        rospy.init_node('Test_getinfo')
+        getinfo = GetControlInputInfo()
+        # getinfo.run()
+        lat, lon, yaw, speed = test_example_run(getinfo)
+        print()
+
+    if unit_test == 'readwaypoints':
+        waypoints = load_arrays_from_file()
+        plot_array_data(waypoints)
+        print()
+
+    if unit_test == 'mpc_controller':
+        show_animation = False
+        test_example_run_mpc(show_animation)
+
+    if unit_test == 'control2carla':
+        test_example_pub_with_mpc()
+
