@@ -59,7 +59,7 @@ WB = 2.5  # [m]
 MAX_STEER = np.deg2rad(45.0)  # maximum steering angle [rad]
 MAX_DSTEER = np.deg2rad(30.0)  # maximum steering speed [rad/s]
 MAX_SPEED = 55.0 / 3.6  # maximum speed [m/s]
-MIN_SPEED = -20.0 / 3.6  # minimum speed [m/s]
+MIN_SPEED = 0.0 / 3.6  # minimum speed [m/s]
 MAX_ACCEL = 1.0  # maximum accel [m/ss]
 
 show_animation = True
@@ -574,6 +574,26 @@ def update_state(state, a, delta):
 
     return state
 
+def update_state_carla(state, easting, northing, yaw_radians_lib, speed):
+
+    # input check
+    if yaw_radians_lib >= MAX_STEER:
+        yaw_radians_lib = MAX_STEER
+    elif yaw_radians_lib <= -MAX_STEER:
+        yaw_radians_lib = -MAX_STEER
+
+    state.x = easting
+    state.y = northing
+    state.yaw = yaw_radians_lib
+    state.v = speed
+
+    if state.v > MAX_SPEED:
+        state.v = MAX_SPEED
+    elif state.v < MIN_SPEED:
+        state.v = MIN_SPEED
+
+    return state
+
 def get_nparray_from_matrix(x):
     return np.array(x).flatten()
 
@@ -748,7 +768,7 @@ def check_goal(state, goal, tind, nind):
 
     return False
 
-def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
+def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state, easting, northing, yaw_radians_lib, speed):
     """
     Simulation
 
@@ -797,7 +817,8 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
         di, ai = 0.0, 0.0
         if odelta is not None:
             di, ai = odelta[0], oa[0]
-            state = update_state(state, ai, di)
+            # state = update_state(state, ai, di)
+            state = update_state_carla(state, easting, northing, yaw_radians_lib, speed)
 
         time = time + DT
 
@@ -831,6 +852,7 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
                       + ", speed[km/h]:" + str(round(state.v * 3.6, 2))
                       + ", acc[m/s^2]:" + str(round(ai, 2))
                       + ", steering[rad]:" + str(round(di, 2)))
+            plt.legend()
             plt.pause(0.0001)
 
     return t, x, y, yaw, v, d, a
@@ -880,7 +902,7 @@ def smooth_yaw(yaw):
 
 def load_arrays_from_file():
     arrays = []
-    filename='/workspace/src/control/src/ws_mpc/gps_log_2_utm_short.txt'
+    filename='/workspace/src/control/src/ws_mpc/odm_x_y_yaw_abs_log_7_straight.txt'
     with open(filename, 'r') as f:
         for line in f:
             x, y = map(float, line.strip().split(','))
@@ -906,49 +928,39 @@ def angle_norm(yaw_angle):
 def accelerate_norm(acc_current):
     return  acc_current / MAX_ACCEL
 
-
-def quaternion_to_yaw_library(x, y, z, w):
-    """
-    Convert a quaternion into yaw (rotation around Z axis) in radians using transforms3d library.
-    """
-    euler = quat2euler([w, x, y, z])  # Note the order: [w, x, y, z]
-    return euler[2]  # Yaw is the third element
-
-
 class MPC_Controller:
     def __init__(self, isPlot = False) -> None:
         rospy.init_node('Control_MPC', anonymous=False)
         self.isRuningMPC = False
         self.cmd_pub = rospy.Publisher('/Ctrl_CV/control/mpc', Twist, queue_size=1)
 
-        self.pattern = ['ros', 'sim'][1]
+        self.pattern = ['ros', 'sim'][0]
         platform = 'carla'
         sensors = SensorConfig(platform)
-        self.gps_listener = GPS_GNSS_Listener(sensors.sensor_config['Gps'])
-        self.gps_converter = GNSStoUTMConverter()
 
         vehicle = VehicleConfig(platform)
         self.ego_vehicle = CarlaEgoVehicle_Listener(vehicle.vehicle_config['Ego'])
 
         self.yaw_convertor = GPSYawCalculator()
+        self.odem_listener = Odem_Listener(sensors.sensor_config['Odem'])
 
         self.isPlot = isPlot        
-        self.isGPSGet = False
+        self.isODEMGet = False
         self.isVEHGet = False
         self.isYAWGet = False
 
-    def load_path_data(self, filename='/workspace/src/control/ws_mpc/gps_log_2.txt'):
+    def load_path_data(self, filename='/workspace/src/control/ws_mpc/odm_x_y_yaw_abs_log_7_straight.txt'):
         data = np.loadtxt(filename, delimiter=',', skiprows=1)
         cx, cy, cyaw, ck = data.T
         return cx, cy, cyaw, ck
         
-    def do_mpc(self, cx, cy, cyaw, ck, sp, dl, initial_state):
+    def do_mpc(self, cx, cy, cyaw, ck, sp, dl, initial_state, easting, northing, yaw_radians_lib, speed):
             """
             Simulation
-
-            cx: course x position list
-            cy: course y position list
-            cy: course yaw position list
+            Modified: Li Xingyou
+            cx: course x position list (any)
+            cy: course y position list (any)
+            cyaw: course yaw position list (radian)
             ck: course curvature list
             sp: speed profile
             dl: course tick [m]
@@ -964,13 +976,7 @@ class MPC_Controller:
                 state.yaw += math.pi * 2.0
 
             time = 0.0
-            x = [state.x]
-            y = [state.y]
-            yaw = [state.yaw]
-            v = [state.v]
-            t = [0.0]
-            d = [0.0]
-            a = [0.0]
+
             target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
 
             odelta, oa = None, None
@@ -989,6 +995,7 @@ class MPC_Controller:
                 di, ai = 0.0, 0.0
                 if odelta is not None:
                     di, ai = odelta[0], oa[0] # delta is steering, a is accelerate
+                    state = update_state_carla(state, easting, northing, yaw_radians_lib, speed)
                 else:
                     di, ai = None, None
 
@@ -996,11 +1003,8 @@ class MPC_Controller:
                     # write_log([di, ai, easting, northing, speed, steering],'/workspace/src/control/src/do_carla_data.txt')
                     twist_msg = Twist()
                     twist_msg.linear.x = ai if ai is not None else 0.0  # Set acceleration as linear velocity
-                    twist_msg.angular.z = -di if di is not None else 0.0  # Set steering as angular velocity
+                    twist_msg.angular.z = angle_norm(di) if di is not None else 0.0  # Set steering as angular velocity
                     self.cmd_pub.publish(twist_msg)
-
-                # Update state (you may need to implement this based on your simulation)
-                # state = update_state(state, ai, di)
 
                 time += DT
 
@@ -1021,46 +1025,46 @@ class MPC_Controller:
         sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
 
         while not rospy.is_shutdown():
-            self.gps_listener.gathering_msg()
             self.ego_vehicle.gathering_msg()
+            self.odem_listener.gathering_msg()
 
-            if self.gps_listener.data_received:
-                location = self.gps_listener.datas[-1]
-                ## convert gnss to utm
-                easting, northing, zone = self.gps_converter.convert(location[0], location[1])
-                # easting, northing, zone = (location[0]) * 100000, (location[1]) * 100000, 1 # gnss
-                self.isGPSGet = True
+            if self.odem_listener.data_received:
+                ## odem with location and orientation
+                last_location_pose = self.odem_listener.datas[-1].pose.pose
+                last_location_position = last_location_pose.position
+                lat, lon = last_location_position.x, last_location_position.y
+                last_location_orientation = last_location_pose.orientation
+                _, _, yaw = quat2euler(
+                    [last_location_orientation.w,
+                    last_location_orientation.x,
+                    last_location_orientation.y,
+                    last_location_orientation.z])
+                yaw_degree = yaw
+                # yaw_degree = math.degrees(yaw)
 
-            ## for calculate yaw from gnss : No use
-            if self.isGPSGet:
-                yaw = self.yaw_convertor.update(easting, northing)
-                if yaw != None:
-                    self.isYAWGet = True
+                self.isODEMGet = True
 
             ## Get vehicle info: Speed, Orientation-> yaw
             if self.ego_vehicle.data_received:
                 data = self.ego_vehicle.datas[-1]
                 speed = data.velocity
-                yaw_radians_lib = quaternion_to_yaw_library(data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w)
-                yaw_degrees_lib = math.degrees(yaw_radians_lib)
                 self.isVEHGet = True
 
 
-            if not self.isRuningMPC and self.isGPSGet and self.isVEHGet and self.isYAWGet:
-                initial_state = State(x=easting, y=northing, yaw=angle_norm(yaw_radians_lib), v=speed)
+            if not self.isRuningMPC and self.isODEMGet and self.isVEHGet:
+                initial_state = State(x=lat, y=lon, yaw=yaw_degree, v=speed)
                 if self.pattern == 'ros':
                     self.isRuningMPC = True
                     print(__file__ + " start!!")
                     spline = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
 
-
                     t, x, y, yaw, v, d, a = self.do_mpc(
-                        cx, cy, cyaw, ck, spline, dl, initial_state)
+                        cx, cy, cyaw, ck, spline, dl, initial_state, lat, lon, yaw_degree, speed)
 
                 if self.pattern == 'sim':
                     t, x, y, yaw, v, d, a = do_simulation(
-                        cx, cy, cyaw, ck, sp, dl, initial_state)
-
+                        cx, cy, cyaw, ck, sp, dl, initial_state, lat, lon, yaw_degree, speed)
+                    break
         elapsed_time = time.time() - start
         print(f"calc time:{elapsed_time:.6f} [sec]")
 
