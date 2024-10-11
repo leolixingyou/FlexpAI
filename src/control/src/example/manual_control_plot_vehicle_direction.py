@@ -2,19 +2,10 @@
 
 
 import matplotlib.pyplot as plt
-import time
-import cvxpy
 import math
 import numpy as np
-import sys
-import pathlib
-sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
 
-from utils.angle import angle_mod
-
-from PathPlanning.CubicSpline import cubic_spline_planner
-
-from carla_msgs.msg import CarlaEgoVehicleControl,CarlaEgoVehicleStatus
+from carla_msgs.msg import CarlaEgoVehicleInfo,CarlaEgoVehicleStatus
 from std_msgs.msg import Bool
 import rospy
 from nav_msgs.msg import Odometry
@@ -46,6 +37,13 @@ def plot_car(ax_main, x, y, yaw, steer=0.0, cabcolor="-r", truckcolor="-k"):  # 
     rl_wheel = np.copy(rr_wheel)
     rl_wheel[1, :] *= -1
 
+    # # triangle
+    # fmr_wheel =  np.array([[0,          0,  WHEEL_LEN,             0,                   0],
+    #                         [0, -WHEEL_LEN,          0,    WHEEL_LEN,           -WHEEL_LEN]])
+
+    fmr_wheel =             np.array([[WHEEL_LEN, -WHEEL_LEN, -WHEEL_LEN, WHEEL_LEN, WHEEL_LEN],
+                         [-WHEEL_WIDTH , -WHEEL_WIDTH , WHEEL_WIDTH , WHEEL_WIDTH , -WHEEL_WIDTH ]])
+
     Rot1 = np.array([[math.cos(yaw), math.sin(yaw)],
                      [-math.sin(yaw), math.cos(yaw)]])
     Rot2 = np.array([[math.cos(steer), math.sin(steer)],
@@ -53,11 +51,14 @@ def plot_car(ax_main, x, y, yaw, steer=0.0, cabcolor="-r", truckcolor="-k"):  # 
 
     fr_wheel = (fr_wheel.T.dot(Rot2)).T
     fl_wheel = (fl_wheel.T.dot(Rot2)).T
+    fmr_wheel = (fmr_wheel.T.dot(Rot2)).T
     fr_wheel[0, :] += WB
     fl_wheel[0, :] += WB
+    fmr_wheel[0, :] += WB
 
     fr_wheel = (fr_wheel.T.dot(Rot1)).T
     fl_wheel = (fl_wheel.T.dot(Rot1)).T
+    fmr_wheel = (fmr_wheel.T.dot(Rot1)).T
 
     outline = (outline.T.dot(Rot1)).T
     rr_wheel = (rr_wheel.T.dot(Rot1)).T
@@ -71,17 +72,22 @@ def plot_car(ax_main, x, y, yaw, steer=0.0, cabcolor="-r", truckcolor="-k"):  # 
     rr_wheel[1, :] += y
     fl_wheel[0, :] += x
     fl_wheel[1, :] += y
+    fmr_wheel[0, :] += x
+    fmr_wheel[1, :] += y
     rl_wheel[0, :] += x
     rl_wheel[1, :] += y
 
+    #plot mid line instead of two wheel
     ax_main.plot(np.array(outline[0, :]).flatten(),
              np.array(outline[1, :]).flatten(), truckcolor)
-    ax_main.plot(np.array(fr_wheel[0, :]).flatten(),
-             np.array(fr_wheel[1, :]).flatten(), truckcolor)
+    # ax_main.plot(np.array(fr_wheel[0, :]).flatten(),
+    #          np.array(fr_wheel[1, :]).flatten(), truckcolor)
+    # ax_main.plot(np.array(fl_wheel[0, :]).flatten(),
+    #          np.array(fl_wheel[1, :]).flatten(), truckcolor)
+    ax_main.plot(np.array(fmr_wheel[0, :]).flatten(),
+             np.array(fmr_wheel[1, :]).flatten(), truckcolor)
     ax_main.plot(np.array(rr_wheel[0, :]).flatten(),
              np.array(rr_wheel[1, :]).flatten(), truckcolor)
-    ax_main.plot(np.array(fl_wheel[0, :]).flatten(),
-             np.array(fl_wheel[1, :]).flatten(), truckcolor)
     ax_main.plot(np.array(rl_wheel[0, :]).flatten(),
              np.array(rl_wheel[1, :]).flatten(), truckcolor)
     ax_main.plot(x, y, "*")
@@ -91,29 +97,39 @@ def leave_some_number(v):
 
 class Vehicle_Listener:
     def __init__(self) -> None:
-        rospy.init_node('asdf')
         rospy.Subscriber("/carla/ego_vehicle/odometry",Odometry, self.cb_odometry)
+        rospy.Subscriber("/carla/ego_vehicle/vehicle_info",CarlaEgoVehicleInfo, self.cb_vehicle_info)
+        rospy.Subscriber("/carla/ego_vehicle/vehicle_status",CarlaEgoVehicleStatus, self.cb_vehicle_status)
 
         self.init_plot = False
+        self.wheel_max_angle = None
         self.g_x = None
         self.g_y = None
         self.g_yaw = None
         self.speed = None
 
-    def cb_odometry(self, data):
-        self.g_x = data.pose.pose.position.x
-        self.g_y = data.pose.pose.position.y
+    def cb_odometry(self, msg):
+        self.g_x = msg.pose.pose.position.x
+        self.g_y = msg.pose.pose.position.y
         _, _, self.g_yaw = quat2euler(
-            [data.pose.pose.orientation.w,
-            data.pose.pose.orientation.x,
-            data.pose.pose.orientation.y,
-            data.pose.pose.orientation.z])
+            [msg.pose.pose.orientation.w,
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z])
         # yaw = math.degrees(yaw)
 
-    def plot_route(self, g_x_update, g_y_update, g_yaw_update, ax_main, time):
+    def cb_vehicle_status(self, msg):
+        self.status = msg
+
+    def cb_vehicle_info(self, msg):
+        # will not update
+        self.wheel_max_angle = msg.wheels[0].max_steer_angle
+        print(f'wheel_max_angle is {self.wheel_max_angle}')
+
+
+    def plot_route(self, g_x_update, g_y_update, g_yaw_update, ax_main, time, steer):
 
         di = self.init_yaw - g_yaw_update
-        print(self.x)
         self.x.append(leave_some_number(g_x_update))
         self.y.append(leave_some_number(g_y_update))
         self.yaw.append(leave_some_number(np.sin((g_yaw_update))))
@@ -124,12 +140,13 @@ class Vehicle_Listener:
         ax_main.clear()
         # Main window drawing code
         ax_main.plot(self.x, self.y, "ob", label="trajectory")
-        plot_car(ax_main, g_x_update, g_y_update, g_yaw_update, steer=di)
+        plot_car(ax_main, g_x_update, g_y_update, g_yaw_update, steer=steer )
         ax_main.axis("equal")
         ax_main.grid(True)
         ax_main.set_title("Time[s]:" + str(round(time, 2))
                 + ", yaw[radian]:" + str(round(g_yaw_update, 2))
-                + ", d_yaw[radian]:" + str(round(di, 2)))
+                + ", d_yaw[radian]:" + str(round(di, 2))
+                + ", steer[radian]:" + str(round(steer, 2)))
         ax_main.legend()
 
         plt.pause(0.0001)
@@ -145,17 +162,27 @@ class Vehicle_Listener:
         img = np.zeros([1,1])
         cv2.imshow('img',img)
 
-        fig = plt.figure(figsize=(20, 10))  # Increase the overall graphic size
+        fig = plt.figure(figsize=(10, 5))  # Increase the overall graphic size
         # Create a large main window and three small status windows
         ax_main = plt.subplot2grid((1, 1), (0, 0), rowspan=1, colspan=1)
 
         while not rospy.is_shutdown():
+            time = 0.0
             x, y, yaw = self.g_x, self.g_y, self.g_yaw
+            
+            """
+            range -1 ~ 1; 
+            Carla Direction: - is Left + is Right;
+            mpc or Cartesian coordinate system: + is Right - is Left
+            """
+            
+            steer_norm = -self.status.control.steer 
             key = cv2.waitKey(1)
             if key == ord('q'):
                 break
             if all([self.g_x, self.g_y, self.g_yaw]):
                 if not self.init_plot:
+                    wheel_max_angle = self.wheel_max_angle
                     self.x.append(leave_some_number(x))
                     self.y.append(leave_some_number(y))
                     self.yaw.append(leave_some_number(np.sin((yaw))))
@@ -164,10 +191,11 @@ class Vehicle_Listener:
                     self.init_yaw = self.g_yaw
                     self.init_plot = True
                 else:
-                    self.plot_route(x, y, yaw, ax_main, 0.0)
-        
+                    steer_temp = np.abs(steer_norm) * wheel_max_angle
+                    steer = steer_temp if steer_norm >0 else -steer_temp
+                    self.plot_route(x, y, yaw, ax_main, time, steer)
+            rospy.Rate(10).sleep##
         plot_update(x, y)
-
 
 
 def plot_update(x, y ):
@@ -184,5 +212,6 @@ def plot_update(x, y ):
 
 
 if __name__ == '__main__':
+    rospy.init_node('asdf')
     vehicle_listener = Vehicle_Listener()
     vehicle_listener.run()
