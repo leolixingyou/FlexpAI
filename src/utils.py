@@ -6,7 +6,7 @@ from std_msgs.msg import String
 
 class Control_Lancher_Manager:
     def __init__(self) -> None:
-        rospy.init_node('Control_Server', anonymous=True)
+        rospy.init_node('Control_Server', anonymous=False)
         self.rate = rospy.Rate(1) # 10hz
         self.pub_master = rospy.Publisher('/control', String, queue_size=10)
 
