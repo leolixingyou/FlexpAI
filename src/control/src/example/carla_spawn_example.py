@@ -6,9 +6,8 @@ from rospy import ServiceException
 from src.base_io.src.carla_bridge.carla_spawn_objects_modified import My_CarlaSpawnObjects, cleanup_ego_vehicle
 import ros_compatibility  as roscomp
 
-
-def main(args=None):
-    cleanup_ego_vehicle()
+def main(config_file, args=None):
+    cleanup_ego_vehicle(config_file)
     rospy.sleep(2)
     """
     main function
@@ -16,11 +15,7 @@ def main(args=None):
     # roscomp.init("spawn_objects", args=args)
     
     spawn_objects_node = None
-    try:
-        spawn_objects_node = My_CarlaSpawnObjects()
-        roscomp.on_shutdown(spawn_objects_node.destroy)
-    except KeyboardInterrupt:
-        roscomp.logerr("Could not initialize My_CarlaSpawnObjects. Shutting down.")
+    spawn_objects_node = My_CarlaSpawnObjects(config_file)
 
     if spawn_objects_node:
         try:
@@ -38,9 +33,22 @@ def main(args=None):
             roscomp.shutdown()
     print('destory')
     # roscomp.on_shutdown(spawn_objects_node.destroy)
-    cleanup_ego_vehicle()
+    cleanup_ego_vehicle(config_file)
 
+def spawn_ego_vehicle(config_file):
+    cleanup_ego_vehicle(config_file)
+    rospy.sleep(2)
+    
+    spawn_objects_node = None
+    spawn_objects_node = My_CarlaSpawnObjects(config_file)
+
+    if spawn_objects_node:
+        spawn_objects_node.spawn_objects()
+
+def clean_ego_vehicle(config_file):
+    cleanup_ego_vehicle(config_file)
 
 if __name__ == '__main__':
+    config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
     rospy.init_node('get_actor')
-    main()
+    spawn_ego_vehicle(config_file)

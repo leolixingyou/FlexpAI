@@ -45,11 +45,11 @@ class My_CarlaSpawnObjects(CompatibleNode):
     Derive from this class and implement method sensors()
     """
 
-    def __init__(self):
+    def __init__(self, config_file_name):
         super(My_CarlaSpawnObjects, self).__init__('carla_spawn_objects')
 
         # self.objects_definition_file = self.get_param('objects_definition_file', '')
-        self.objects_definition_file = '/workspace/src/base_io/src/objects.json'
+        self.objects_definition_file = config_file_name
         self.spawn_sensors_only = self.get_param('spawn_sensors_only', False)
 
         self.players = []
@@ -357,9 +357,9 @@ class My_CarlaSpawnObjects(CompatibleNode):
             return False
 
 class Actor_Listener:
-    def __init__(self) -> None:
+    def __init__(self, config_file) -> None:
         rospy.Subscriber('/carla/actor_list',CarlaActorList, self.cb_carla_actor)
-        self.spawner = My_CarlaSpawnObjects()
+        self.spawner = My_CarlaSpawnObjects(config_file)
         self.get_info =False
 
     def cb_carla_actor(self,msg):
@@ -375,23 +375,32 @@ class Actor_Listener:
         if len(obj_temp_id) >0 :
             obj_id = obj_temp_id[0]
             return self.spawner.clean_up_ego_vehicle(obj_id)
-        
     
-def cleanup_ego_vehicle():
-    actors =Actor_Listener()
+
+import time
+    
+def cleanup_ego_vehicle(config_file):
+    actors =Actor_Listener(config_file)
+    start = time.time()
     while not rospy.is_shutdown():
-        if actors.get_info:
-            success = actors.destory_obj()
+        if time.time() - start < 3:
+            if actors.get_info:
+                success = actors.destory_obj()
+                print(f'Clean Up: {success}')
+                break
+        else:
+            print(f'No Actors')
             break
-    print(f'Clean Up: {success}')
+    print(f'Cleaning Up')
+
 
 # ==============================================================================
 # -- main() --------------------------------------------------------------------
 # ==============================================================================
 
 
-def main(args=None):
-    cleanup_ego_vehicle()
+def main(config_file, args=None):
+    cleanup_ego_vehicle(config_file)
     rospy.sleep(2)
     """
     main function
@@ -421,9 +430,10 @@ def main(args=None):
             roscomp.shutdown()
     print('destory')
     # roscomp.on_shutdown(spawn_objects_node.destroy)
-    cleanup_ego_vehicle()
+    cleanup_ego_vehicle(config_file)
 
 if __name__ == '__main__':
     rospy.init_node('example')
-    main()
+    config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
+    main(config_file)
     # cleanup_ego_vehicle()
