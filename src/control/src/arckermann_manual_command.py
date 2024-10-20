@@ -54,15 +54,23 @@ class Control_Command_Manager:
                 self.target_jerk = 0
 
             elif key == ord('s'):
-                self.target_speed = -10
-                self.target_steer = 0
-                self.target_acc = 1
-                self.target_jerk = 0
-            elif key == 32:
-                self.target_speed = 0
+                self.target_speed = -3
                 self.target_steer = 0
                 self.target_acc = 0
                 self.target_jerk = 0
+
+            elif key == ord('a'):
+                self.target_speed = 1 ## + left
+                self.target_steer = 1.1
+                self.target_acc = 0
+                self.target_jerk = 0
+
+            elif key == ord('d'):
+                self.target_speed = 1
+                self.target_steer = -1.1
+                self.target_acc = 0
+                self.target_jerk = 0
+
             elif key == ord('q'):
                 break
 
