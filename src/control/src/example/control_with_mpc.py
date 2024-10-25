@@ -33,20 +33,21 @@ T = 5  # horizon length
 # mpc parameters
 R = np.diag([0.01, 0.01])  # input cost matrix
 Rd = np.diag([0.01, 1.0])  # input difference cost matrix
-Q = np.diag([1.0, 1.0, 0.5, 0.5])  # state cost matrix
+# Q = np.diag([1.0, 1.0, .5, .5])  # state cost matrix
+Q = np.diag([1.0, 1.0, 50, 2.5])  # state cost matrix
 Qf = Q  # state final matrix
 GOAL_DIS = 1.5  # goal distance
 STOP_SPEED = 0.5 / 3.6  # stop speed
 MAX_TIME = 500.0  # max simulation time
 
 # iterative paramter
-MAX_ITER = 3  # Max iteration
+MAX_ITER = 3  # Max iterationss
 DU_TH = 0.1  # iteration finish param
 
-TARGET_SPEED = 10.0 / 3.6  # [m/s] target speed
+TARGET_SPEED = 30.0 / 3.6  # [m/s] target speed
 N_IND_SEARCH = 10  # Search index number
 
-DT = 0.2  # [s] time tick
+DT = .2  # [s] time tick
 
 # Vehicle parameters
 LENGTH = 4.5  # [m]
@@ -58,10 +59,10 @@ TREAD = 0.7  # [m]
 WB = 2.5  # [m]q
 
 MAX_STEER = np.deg2rad(45.0)  # maximum steering angle [rad]
-MAX_DSTEER = np.deg2rad(30.0)  # maximum steering speed [rad/s]
-MAX_SPEED = 30.0 / 3.6  # maximum speed [m/s]
+MAX_DSTEER = np.deg2rad(15.0)  # maximum steering speed [rad/s]
+MAX_SPEED = 50.0 / 3.6  # maximum speed [m/s]
 MIN_SPEED = 0.0 / 3.6  # minimum speed [m/s]
-MAX_ACCEL = 1.0  # maximum accel [m/ss]
+MAX_ACCEL = 1.  # maximum accel [m/ss]
 
 class State:
     """
@@ -73,6 +74,7 @@ class State:
         self.y = y
         self.yaw = yaw
         self.v = v
+        self.observed_acc = 0
         self.predelta = None
 
 def calc_speed_profile(cx, cy, cyaw, target_speed):
@@ -146,7 +148,19 @@ def update_state_carla(state, delta, ai, wheel_max_angle):
     state.x = state.x + state.v * math.cos(state.yaw) * DT
     state.y = state.y + state.v * math.sin(state.yaw) * DT
     state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
-    state.v = state.v + ai * DT
+
+    mu = 0.015  # Friction coeffecient
+    g = 9.81    # Gravity acceleration
+    
+    # Calculating deceleration due to friction
+    friction_acc = -mu * g * math.cos(state.yaw)  # Consider the influence of slope
+    
+    # Actual observed acceleration (command acceleration + friction)
+    state.observed_acc = ai - friction_acc
+    if state.observed_acc<0:
+        print()
+    # Update velocity with observed acceleration
+    state.v = state.v + state.observed_acc * DT
 
     if state.v > MAX_SPEED:
         state.v = MAX_SPEED
@@ -155,7 +169,7 @@ def update_state_carla(state, delta, ai, wheel_max_angle):
 
     return state
 
-def update_state(state, a, delta):
+def update_state(state, ai, delta):
     # input check
     if delta >= MAX_STEER:
         delta = MAX_STEER
@@ -165,7 +179,19 @@ def update_state(state, a, delta):
     state.x = state.x + state.v * math.cos(state.yaw) * DT
     state.y = state.y + state.v * math.sin(state.yaw) * DT
     state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
-    state.v = state.v + a * DT
+
+    mu = 0.015  # Friction coeffecient
+    g = 9.81    # Gravity acceleration
+    
+    # Calculating deceleration due to friction
+    friction_acc = -mu * g * math.cos(state.yaw)  # Consider the influence of slope
+    
+    # Actual observed acceleration (command acceleration + friction)
+    state.observed_acc = ai - friction_acc
+    if state.observed_acc<0:
+        print()
+    # Update velocity with observed acceleration
+    state.v = state.v + state.observed_acc * DT
 
     if state.v > MAX_SPEED:
         state.v = MAX_SPEED
@@ -442,17 +468,35 @@ def corrinate_transformation(v):
     v_array -= v_array[0]
     return v_array
 
+def reduce_course(n):
+    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05.txt', 'r') as file:
+        data = file.readlines()
+    data_temp = [x for i,x in enumerate(data) if i % n ==0 ]
+    info_temp = [x.split(',')[:2] for x in data_temp]
+    data_float = []
+    for info in info_temp:
+        print(info)
+        float_info = [round(float(x),2) for x in info]
+        data_float.append(float_info)
+    data_int = np.array(data_float)
+    ax, ay = data_int[:,0], data_int[:,1]
+    return ax, ay
+
 def init_course(dl): #curve
     # make start point to (0,0)
     ## straght path
-    # ax = [383.8, 334.9]
-    # ay = [-326.9, -329.2]
-    ## curves
-    ax = [383.8, 346.5, 338.1]
-    ay = [-326.9, -326.9, -203.7]
+    ax = [383.8, 334.9]
+    ay = [-326.9, -329.2]
+    # ## curves
+    # ax = [383.8, 342.6, 346.5, 338.1]
+    # ay = [-326.9, -327.7, -326.9, -203.7]
     # ## curves
     # ax = [383.8, 346.5, 338.1, 310.3]
     # ay = [-326.9, -326.9, -203.7, -195.5]
+    ## round
+    # ax, ay = read_txt_round()
+
+    ax, ay = reduce_course(2)    
 
     cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
         corrinate_transformation(ax), corrinate_transformation(ay), ds=dl)
@@ -525,10 +569,10 @@ def check_goal(state, goal, tind, nind):
         if abs(tind - nind) >= 5:
             isgoal = False
 
-        isstop = (abs(state.v) <= STOP_SPEED)
+        # isstop = (abs(state.v) <= STOP_SPEED)
 
-        if isgoal and isstop:
-            return True
+        # if isgoal and isstop:
+        #     return True
 
         return False
 
@@ -541,8 +585,26 @@ def pacakage_msg(target_steer, target_speed, target_acc, target_jerk):
     msg.jerk =target_jerk 
     return msg
 
+def read_txt_round():
+    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05.txt') as f:
+        data = f.readlines()
+    x_y = np.array([x.split(',') for x in data])[:, :2]
+    ax, ay = x_y[:,0], x_y[:,1]
+    def numpy_string_to_list(v):
+        return [float(x) for x in v]
+    return numpy_string_to_list(ax), numpy_string_to_list(ay)
+
 class Controller_MPC:
-    def __init__(self, config_file) -> None:
+    def __init__(self) -> None:
+        self.init_plot = False
+        self.wheel_max_angle = None
+        self.g_x = None
+        self.g_y = None
+        self.g_yaw = None
+        self.speed = None
+        self.get_info = False
+
+    def mpc_for_carla(self,config_file):
         self.config_file = config_file
         ## !!! spawn vehicle must be before than subscriber !!!
         spawn_ego_vehicle(config_file)
@@ -553,14 +615,6 @@ class Controller_MPC:
         rospy.Subscriber("/carla/ego_vehicle/vehicle_info",CarlaEgoVehicleInfo, self.cb_vehicle_info)
         rospy.Subscriber("/carla/ego_vehicle/vehicle_status",CarlaEgoVehicleStatus, self.cb_vehicle_status)
         self.vehicle_control_publisher = rospy.Publisher("/carla/ego_vehicle/vehicle_control_cmd", CarlaEgoVehicleControl, queue_size=1)
-
-        self.init_plot = False
-        self.wheel_max_angle = None
-        self.g_x = None
-        self.g_y = None
-        self.g_yaw = None
-        self.speed = None
-        self.get_info = False
 
     def cleanup(self,):
         clean_ego_vehicle(self.config_file)
@@ -615,7 +669,7 @@ class Controller_MPC:
         ax_main.axis("equal")
         ax_main.grid(True)
         ax_main.set_title("Time[s]:" + str(round(self.time, 2))
-                + ", speed[m/s]:" + str(round(v_update, 2))
+                + ", speed[km/h]:" + str(round(v_update, 2)*3.6)
                 + ", yaw[radian]:" + str(round(yaw_update, 2))
                 + ", steer[radian]:" + str(round(wheel_anlge, 2)))
         ax_main.legend()
@@ -662,7 +716,7 @@ class Controller_MPC:
     
     def matplot_loop(self, mode, axs):
 
-        self.state, self.target_index, mpc_infos = mpc_init(mode)
+        self.state, self.target_index, goal, mpc_infos = mpc_init(mode)
         odelta, oa = None, None
 
         self.x.append(leave_some_number(self.state.x))
@@ -683,17 +737,31 @@ class Controller_MPC:
 
         # unit:radian -> the mpc output direction is opposite Carla's
         _control.steer = -(di / wheel_max_angle)
-        
+
+        # if ai < 0: 
+        #     _control.gear = 1
+        #     _control.reverse = _control.gear < 0
+        #     _control.throttle = 0 
+        #     _control.brake = ai
+
+        # elif ai >=  0: 
+        #     _control.gear = 1
+        #     _control.reverse = _control.gear < 0
+        #     _control.throttle =  ai
+        #     _control.brake = 0
+        rate_throttle = abs(ai)/MAX_ACCEL
+
         if self.state.v <= MIN_SPEED :
             _control.gear = 1
             _control.reverse = _control.gear < 0
-            _control.throttle = ai 
+            _control.throttle = rate_throttle 
             _control.brake = 0
+            
         elif  MIN_SPEED < self.state.v <= TARGET_SPEED:
-            if ai > 0:
+            if rate_throttle > 0:
                 _control.gear = 1
                 _control.reverse = _control.gear < 0
-                _control.throttle = ai
+                _control.throttle = rate_throttle
                 _control.brake = 0
             else:
                 _control.gear = 0
@@ -706,6 +774,12 @@ class Controller_MPC:
             _control.reverse = _control.gear < 0
             _control.throttle = 0
             _control.brake = 0
+
+        if rate_throttle < -.8 * MAX_ACCEL:
+            _control.gear = 1
+            _control.reverse = _control.gear < 0
+            _control.throttle = 0
+            _control.brake = rate_throttle
 
         if check_goal(self.state, self.goal, self.target_index, len(cx)):
             print("Goal")
@@ -800,7 +874,7 @@ class Controller_MPC:
                     self.time += DT
                     self.plot_car_state([g_x, g_y, g_yaw,], wheel_anlge_from_listener, mpc_infos, mpc_updates, axs)
 
-    def run(self,):
+    def run(self,config_file):
         mode = ['matplot', 'carla'][1]
         controller = ['arckermann', 'carla'][1]
         self.x = []
@@ -825,16 +899,17 @@ class Controller_MPC:
         if mode == 'matplot':
             self.matplot_loop(mode, axs)
         if mode == 'carla':
+            self.mpc_for_carla(config_file)
             self.carla_loop(mode, axs, controller)
-            rospy.Rate(50).sleep
+            rospy.Rate(.2).sleep
         self.cleanup()
 
 if __name__ == '__main__':
     rospy.init_node('asdf')
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
-    vehicle_listener = Controller_MPC(config_file)
+    vehicle_listener = Controller_MPC()
     try:
-        vehicle_listener.run()
+        vehicle_listener.run(config_file)
         plot_update(vehicle_listener.x, vehicle_listener.y)
     except (ROSInterruptException, ServiceException, KeyboardInterrupt):
         pass
