@@ -27,7 +27,7 @@ import cv2
 import numpy as np
 from transforms3d.euler import quat2euler
 
-
+from  manual_control_plot_vehicle_direction import plot_car
 g_x = 0
 g_y = 0
 g_z = 0
@@ -44,14 +44,14 @@ def cb_odometry(data):
         data.pose.pose.orientation.z])
     # yaw = math.degrees(yaw)
 
-g_status = CarlaEgoVehicleStatus()
-def cb_status(data):
-    global g_status
-    g_status = data
+# g_status = CarlaEgoVehicleStatus()
+# def cb_status(data):
+#     global g_status
+#     g_status = data
 
 
-_control = CarlaEgoVehicleControl()
-vehicle_control_publisher = rospy.Publisher("/carla/ego_vehicle/vehicle_control_cmd", CarlaEgoVehicleControl, queue_size=1)
+# _control = CarlaEgoVehicleControl()
+# vehicle_control_publisher = rospy.Publisher("/carla/ego_vehicle/vehicle_control_cmd", CarlaEgoVehicleControl, queue_size=1)
 
 NX = 4  # x = x, y, v, yaw
 NU = 2  # a = [accel, steer]
@@ -60,7 +60,8 @@ T = 5  # horizon length
 # mpc parameters
 R = np.diag([0.01, 0.01])  # input cost matrix
 Rd = np.diag([0.01, 1.0])  # input difference cost matrix
-Q = np.diag([1.0, 1.0, 0.5, 0.5])  # state cost matrix
+# Q = np.diag([1.0, 1.0, .5, 0.5])  # state cost matrix
+Q = np.diag([1.0, 1.0, 20.0, 15.])  # state cost matrix
 Qf = Q  # state final matrix
 GOAL_DIS = 1.5  # goal distance
 STOP_SPEED = 0.5 / 3.6  # stop speed
@@ -68,9 +69,10 @@ MAX_TIME = 500.0  # max simulation time
 
 # iterative paramter
 MAX_ITER = 3  # Max iteration
-DU_TH = 0.1  # iteration finish param
+DU_TH = 0.2  # iteration finish param
+# DU_TH = 0.2 * T  # iteration finish param
 
-TARGET_SPEED = 10.0 / 3.6  # [m/s] target speed
+TARGET_SPEED = 30.0 / 3.6  # [m/s] target speed
 N_IND_SEARCH = 10  # Search index number
 
 DT = 0.2  # [s] time tick
@@ -86,8 +88,11 @@ WB = 2.5  # [m]q
 
 MAX_STEER = np.deg2rad(45.0)  # maximum steering angle [rad]
 MAX_DSTEER = np.deg2rad(30.0)  # maximum steering speed [rad/s]
+# MAX_STEER = np.deg2rad(72.0)  # maximum steering angle [rad]
+# MAX_DSTEER = np.deg2rad(15.0)  # maximum steering speed [rad/s]
 MAX_SPEED = 55.0 / 3.6  # maximum speed [m/s]
-MIN_SPEED = -20.0 / 3.6  # minimum speed [m/s]
+# MIN_SPEED = -20.0 / 3.6  # minimum speed [m/s]
+MIN_SPEED = 0.0 / 3.6  # minimum speed [m/s]
 MAX_ACCEL = 1.0  # maximum accel [m/ss]
 
 show_animation = True
@@ -103,12 +108,11 @@ class State:
         self.y = y
         self.yaw = yaw
         self.v = v
+        self.observed_acc = 0
         self.predelta = None
-
 
 def pi_2_pi(angle):
     return angle_mod(angle)
-
 
 def get_linear_model_matrix(v, phi, delta):
 
@@ -134,76 +138,47 @@ def get_linear_model_matrix(v, phi, delta):
 
     return A, B, C
 
+# def update_state(state, a, delta):
 
-def plot_car(ax_main, x, y, yaw, steer=0.0, cabcolor="-r", truckcolor="-k"):  # pragma: no cover
+#     # input check
+#     if delta >= MAX_STEER:
+#         delta = MAX_STEER
+#     elif delta <= -MAX_STEER:
+#         delta = -MAX_STEER
 
-    outline = np.array([[-BACKTOWHEEL, (LENGTH - BACKTOWHEEL), (LENGTH - BACKTOWHEEL), -BACKTOWHEEL, -BACKTOWHEEL],
-                        [WIDTH / 2, WIDTH / 2, - WIDTH / 2, -WIDTH / 2, WIDTH / 2]])
+#     state.x = state.x + state.v * math.cos(state.yaw) * DT
+#     state.y = state.y + state.v * math.sin(state.yaw) * DT
+#     state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
+#     state.v = state.v + a * DT
 
-    fr_wheel = np.array([[WHEEL_LEN, -WHEEL_LEN, -WHEEL_LEN, WHEEL_LEN, WHEEL_LEN],
-                         [-WHEEL_WIDTH - TREAD, -WHEEL_WIDTH - TREAD, WHEEL_WIDTH - TREAD, WHEEL_WIDTH - TREAD, -WHEEL_WIDTH - TREAD]])
+#     if state.v > MAX_SPEED:
+#         state.v = MAX_SPEED
+#     elif state.v < MIN_SPEED:
+#         state.v = MIN_SPEED
 
-    rr_wheel = np.copy(fr_wheel)
-
-    fl_wheel = np.copy(fr_wheel)
-    fl_wheel[1, :] *= -1
-    rl_wheel = np.copy(rr_wheel)
-    rl_wheel[1, :] *= -1
-
-    Rot1 = np.array([[math.cos(yaw), math.sin(yaw)],
-                     [-math.sin(yaw), math.cos(yaw)]])
-    Rot2 = np.array([[math.cos(steer), math.sin(steer)],
-                     [-math.sin(steer), math.cos(steer)]])
-
-    fr_wheel = (fr_wheel.T.dot(Rot2)).T
-    fl_wheel = (fl_wheel.T.dot(Rot2)).T
-    fr_wheel[0, :] += WB
-    fl_wheel[0, :] += WB
-
-    fr_wheel = (fr_wheel.T.dot(Rot1)).T
-    fl_wheel = (fl_wheel.T.dot(Rot1)).T
-
-    outline = (outline.T.dot(Rot1)).T
-    rr_wheel = (rr_wheel.T.dot(Rot1)).T
-    rl_wheel = (rl_wheel.T.dot(Rot1)).T
-
-    outline[0, :] += x
-    outline[1, :] += y
-    fr_wheel[0, :] += x
-    fr_wheel[1, :] += y
-    rr_wheel[0, :] += x
-    rr_wheel[1, :] += y
-    fl_wheel[0, :] += x
-    fl_wheel[1, :] += y
-    rl_wheel[0, :] += x
-    rl_wheel[1, :] += y
-
-    ax_main.plot(np.array(outline[0, :]).flatten(),
-             np.array(outline[1, :]).flatten(), truckcolor)
-    ax_main.plot(np.array(fr_wheel[0, :]).flatten(),
-             np.array(fr_wheel[1, :]).flatten(), truckcolor)
-    ax_main.plot(np.array(rr_wheel[0, :]).flatten(),
-             np.array(rr_wheel[1, :]).flatten(), truckcolor)
-    ax_main.plot(np.array(fl_wheel[0, :]).flatten(),
-             np.array(fl_wheel[1, :]).flatten(), truckcolor)
-    ax_main.plot(np.array(rl_wheel[0, :]).flatten(),
-             np.array(rl_wheel[1, :]).flatten(), truckcolor)
-    ax_main.plot(x, y, "*")
-
+#     return state
 
 def update_state(state, a, delta):
 
-    # input check
-    if delta >= MAX_STEER:
-        delta = MAX_STEER
-    elif delta <= -MAX_STEER:
-        delta = -MAX_STEER
-
-    state.x = state.x + state.v * math.cos(state.yaw) * DT
+    state.x = state.x + state.v * math.cos(state.yaw) * DT  
     state.y = state.y + state.v * math.sin(state.yaw) * DT
     state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
-    state.v = state.v + a * DT
 
+    # Friction
+    mu = 0.015  # Friction coeffecient
+    g = 9.81    # Gravity acceleration
+    
+    # Calculating deceleration due to friction
+    friction_acc = -mu * g * math.cos(state.yaw)  # Consider the influence of slope
+    
+    # Actual observed acceleration (command acceleration + friction)
+    state.observed_acc = a - friction_acc
+    if state.observed_acc<0:
+        print()
+    # Update velocity with observed acceleration
+    state.v = state.v + state.observed_acc * DT
+
+    # 速度限制
     if state.v > MAX_SPEED:
         state.v = MAX_SPEED
     elif state.v < MIN_SPEED:
@@ -211,10 +186,8 @@ def update_state(state, a, delta):
 
     return state
 
-
 def get_nparray_from_matrix(x):
     return np.array(x).flatten()
-
 
 def calc_nearest_index(state, cx, cy, cyaw, pind):
 
@@ -238,7 +211,6 @@ def calc_nearest_index(state, cx, cy, cyaw, pind):
 
     return ind, mind
 
-
 def predict_motion(x0, oa, od, xref):
     xbar = xref * 0.0
     for i, _ in enumerate(x0):
@@ -254,13 +226,41 @@ def predict_motion(x0, oa, od, xref):
 
     return xbar
 
+# def iterative_linear_mpc_control(xref, x0, dref, oa, od):
+#     """
+#     MPC control with updating operational point iteratively
+#     """
+#     ox, oy, oyaw, ov = None, None, None, None
+#     his_ox, his_oy, his_oyaw, his_ov = None, None, None, None
+    
+#     if oa is None or od is None:
+#         oa = [0.0] * T
+#         od = [0.0] * T
+
+#     for i in range(MAX_ITER):
+#         xbar = predict_motion(x0, oa, od, xref)
+#         poa, pod = oa[:], od[:]
+#         oa, od, ox, oy, oyaw, ov = linear_mpc_control(xref, xbar, x0, dref)
+#         try:
+#             du = sum(abs(oa - poa)) + sum(abs(od - pod))  # calc u change value
+#             his_ox, his_oy, his_oyaw, his_ov = ox, oy, oyaw, ov
+#         except:
+#             ox, oy, oyaw, ov = his_ox, his_oy, his_oyaw, his_ov
+#             du = 1
+#         if du <= DU_TH:
+#             break
+#     else:
+#         print("Iterative is max iter")
+
+#     return oa, od, ox, oy, oyaw, ov
 
 def iterative_linear_mpc_control(xref, x0, dref, oa, od):
     """
     MPC control with updating operational point iteratively
     """
     ox, oy, oyaw, ov = None, None, None, None
-
+    his_ox, his_oy, his_oyaw, his_ov = None, None, None, None
+    
     if oa is None or od is None:
         oa = [0.0] * T
         od = [0.0] * T
@@ -270,13 +270,13 @@ def iterative_linear_mpc_control(xref, x0, dref, oa, od):
         poa, pod = oa[:], od[:]
         oa, od, ox, oy, oyaw, ov = linear_mpc_control(xref, xbar, x0, dref)
         du = sum(abs(oa - poa)) + sum(abs(od - pod))  # calc u change value
+
         if du <= DU_TH:
             break
     else:
         print("Iterative is max iter")
 
     return oa, od, ox, oy, oyaw, ov
-
 
 def linear_mpc_control(xref, xbar, x0, dref):
     """
@@ -334,7 +334,6 @@ def linear_mpc_control(xref, xbar, x0, dref):
 
     return oa, odelta, ox, oy, oyaw, ov
 
-
 def calc_ref_trajectory(state, cx, cy, cyaw, ck, sp, dl, pind):
     xref = np.zeros((NX, T + 1))
     dref = np.zeros((1, T + 1))
@@ -372,7 +371,6 @@ def calc_ref_trajectory(state, cx, cy, cyaw, ck, sp, dl, pind):
 
     return xref, ind, dref
 
-
 def check_goal(state, goal, tind, nind):
 
     # check goal
@@ -391,7 +389,6 @@ def check_goal(state, goal, tind, nind):
         return True
 
     return False
-
 
 def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
     """
@@ -432,7 +429,7 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
 
     cyaw = smooth_yaw(cyaw)
     
-    fig = plt.figure(figsize=(20, 10))  # Increase the overall graphic size
+    fig = plt.figure(figsize=(10, 5))  # Increase the overall graphic size
     # Create a large main window and three small status windows
     ax_main = plt.subplot2grid((3, 3), (0, 0), rowspan=3, colspan=2)
     ax1 = plt.subplot2grid((3, 3), (0, 2))
@@ -451,6 +448,7 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
         di, ai = 0.0, 0.0
         if odelta is not None:
             di, ai = odelta[0], oa[0]
+            # di, ai = 0, oa[0]
             state = update_state(state, ai, di)
 
         time = time + DT
@@ -485,7 +483,7 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
 
             ax1.plot(t, yaw, "-r", label="yaw")
             ax1.grid(True)
-            ax1.set_title('Fig 1.Yaw; Fig 2. d_Yaw; Fig 3. d_Accelerate')
+            ax1.set_title('Fig 1.G_Yaw; Fig 2. V_Yaw; Fig 3. V_Accelerate')
             ax1.set_xlabel("Time [s]")
             ax1.set_ylabel("Yaw [sin]")
             ax1.set_ylim(-1,1)
@@ -494,162 +492,17 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
             ax2.grid(True)
             ax2.set_title('')
             ax2.set_xlabel("Time [s]")
-            ax2.set_ylabel("d_yaw [rad]")
+            ax2.set_ylabel("yaw [rad]")
 
             ax3.plot(t, a, "-r", label="d_acc")
             ax3.grid(True)
             ax3.set_title('')
             ax3.set_xlabel("Time [s]")
-            ax3.set_ylabel("d_acc [m/ss]")
+            ax3.set_ylabel("acc [m/ss]")
 
             plt.pause(0.0001)
 
     return t, x, y, yaw, v, d, a
-
-
-
-def do_sim_carla(cx, cy, cyaw, ck, sp, dl, initial_state):
-    """
-    Simulation
-
-    cx: course x position list
-    cy: course y position list
-    cy: course yaw position list
-    ck: course curvature list
-    sp: speed profile
-    dl: course tick [m]
-
-    """
-    def a_b(v):
-            return float("%.7f" % v)
-    goal = [cx[-1], cy[-1]]
-
-    state = initial_state
-
-    # # initial yaw compensation
-    # if state.yaw - cyaw[0] >= math.pi:
-    #     state.yaw -= math.pi * 2.0
-    # elif state.yaw - cyaw[0] <= -math.pi:
-    #     state.yaw += math.pi * 2.0
-
-    time = 0.0
-    x = [a_b(state.x)]
-    y = [a_b(state.y)]
-    yaw = [a_b(np.sin(state.yaw))]
-    v = [a_b(state.v)]
-    t = [0.0]
-    d = [0.0]
-    a = [0.0]
-    target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
-
-    odelta, oa = None, None
-
-    # cyaw = smooth_yaw(cyaw)
-
-    fig = plt.figure(figsize=(20, 10))  # Increase the overall graphic size
-    # Create a large main window and three small status windows
-    ax_main = plt.subplot2grid((3, 3), (0, 0), rowspan=3, colspan=2)
-    ax1 = plt.subplot2grid((3, 3), (0, 2))
-    ax2 = plt.subplot2grid((3, 3), (1, 2))
-    ax3 = plt.subplot2grid((3, 3), (2, 2))
-    
-    count = 0
-    img = np.zeros([1,1])
-    cv2.imshow('img',img)
-
-    # while MAX_TIME >= time:
-    while True:
-        key = cv2.waitKey(1)
-        if key == ord('q'):
-            break
-        xref, target_ind, dref = calc_ref_trajectory(state, cx, cy, cyaw, ck, sp, dl, target_ind)
-
-        x0 = [state.x, state.y, state.v, state.yaw]  # current state
-
-        oa, odelta, ox, oy, oyaw, ov = iterative_linear_mpc_control(xref, x0, dref, oa, odelta)
-
-        di, ai = 0.0, 0.0
-        if odelta is not None:
-            di, ai = odelta[0], oa[0]
-            # state = update_state(state, ai, di)
-            # while not rospy.is_shutdown():
-            _control.gear = 1
-            _control.reverse = _control.gear < 0
-            _control.throttle = ai * 0.5
-            _control.brake = 0
-
-            # unit:radian -> the mpc output direction is opposite Carla's
-            _control.steer = (- di) / MAX_STEER 
-
-        # vehicle_control_publisher.publish(_control)
-        state.x = g_x
-        state.y = g_y
-        state.v = g_status.velocity
-        state.yaw = -g_yaw
-        print(state.x,state.y,state.v,state.yaw)
-
-        time = time + DT
-
-        x.append(a_b(state.x))
-        y.append(a_b(state.y))
-        yaw.append(a_b(np.sin((state.yaw))))
-        v.append(a_b(state.v))
-        t.append(a_b(time))
-        d.append(a_b(di))
-        a.append(a_b(ai))
-
-        if check_goal(state, goal, target_ind, len(cx)):
-            print("Goal")
-            break
-
-        if show_animation:  # pragma: no cover
-            ax_main.clear()
-            # Main window drawing code
-            if ox is not None:
-                ax_main.plot(ox, oy, "xr", label="MPC")
-            ax_main.plot(cx, cy, "-r", label="course")
-            ax_main.plot(x, y, "ob", label="trajectory")
-            ax_main.plot(xref[0, :], xref[1, :], "xk", label="xref")
-            ax_main.plot(cx[target_ind], cy[target_ind], "xg", label="target")
-            plot_car(ax_main, state.x, state.y, state.yaw, steer=di)
-            ax_main.axis("equal")
-            ax_main.grid(True)
-            ax_main.set_title("Time[s]:" + str(round(time, 2))
-                    + ", speed[km/h]:" + str(round(state.v * 3.6, 2))
-                    + ", yaw[radian]:" + str(round(state.yaw, 2))
-                    + ", accelerate[m/ss]:" + str(round(ai, 2))
-                    + ", d_yaw[m/ss]:" + str(round(di, 2)))
-            ax_main.legend()
-
-
-            ax1.plot(t, yaw, "-r", label="yaw")
-            ax1.grid(True)
-            ax1.set_title('Fig 1.Yaw; Fig 2. d_Yaw; Fig 3. d_Accelerate')
-            ax1.set_xlabel("Time [s]")
-            ax1.set_ylabel("Yaw [sin]")
-            ax1.set_ylim(-1,1)
-
-            ax2.plot(t, d, "-r", label="d_yaw")
-            ax2.grid(True)
-            ax2.set_title('')
-            ax2.set_xlabel("Time [s]")
-            ax2.set_ylabel("d_yaw [rad]")
-
-            ax3.plot(t, a, "-r", label="d_acc")
-            ax3.grid(True)
-            ax3.set_title('')
-            ax3.set_xlabel("Time [s]")
-            ax3.set_ylabel("d_acc [m/ss]")
-
-            plt.pause(0.0001)
-            
-            count +=1
-        # if count > 150:
-        #     break
-
-    return t, x, y, yaw, v, d, a
-
-
 
 def calc_speed_profile(cx, cy, cyaw, target_speed):
 
@@ -680,7 +533,6 @@ def calc_speed_profile(cx, cy, cyaw, target_speed):
 
     return speed_profile
 
-
 def smooth_yaw(yaw):
 
     for i in range(len(yaw) - 1):
@@ -696,7 +548,6 @@ def smooth_yaw(yaw):
 
     return yaw
 
-
 def get_my_course1(dl): #straight
     ax = [383.8, 334.9]
     ay = [-326.9, -326.9]
@@ -705,26 +556,195 @@ def get_my_course1(dl): #straight
 
     return cx, cy, cyaw, ck
 
+# def do_sim_carla(cx, cy, cyaw, ck, sp, dl, initial_state):
+#     """
+#     Simulation
+
+#     cx: course x position list
+#     cy: course y position list
+#     cy: course yaw position list
+#     ck: course curvature list
+#     sp: speed profile
+#     dl: course tick [m]
+
+#     """
+#     def a_b(v):
+#             return float("%.7f" % v)
+#     goal = [cx[-1], cy[-1]]
+
+#     state = initial_state
+
+#     # # initial yaw compensation
+#     # if state.yaw - cyaw[0] >= math.pi:
+#     #     state.yaw -= math.pi * 2.0
+#     # elif state.yaw - cyaw[0] <= -math.pi:
+#     #     state.yaw += math.pi * 2.0
+
+#     time = 0.0
+#     x = [a_b(state.x)]
+#     y = [a_b(state.y)]
+#     yaw = [a_b(np.sin(state.yaw))]
+#     v = [a_b(state.v)]
+#     t = [0.0]
+#     d = [0.0]
+#     a = [0.0]
+#     target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
+
+#     odelta, oa = None, None
+
+#     # cyaw = smooth_yaw(cyaw)
+
+#     fig = plt.figure(figsize=(20, 10))  # Increase the overall graphic size
+#     # Create a large main window and three small status windows
+#     ax_main = plt.subplot2grid((3, 3), (0, 0), rowspan=3, colspan=2)
+#     ax1 = plt.subplot2grid((3, 3), (0, 2))
+#     ax2 = plt.subplot2grid((3, 3), (1, 2))
+#     ax3 = plt.subplot2grid((3, 3), (2, 2))
+    
+#     count = 0
+#     img = np.zeros([1,1])
+#     cv2.imshow('img',img)
+
+#     # while MAX_TIME >= time:
+#     while True:
+#         key = cv2.waitKey(1)
+#         if key == ord('q'):
+#             break
+#         xref, target_ind, dref = calc_ref_trajectory(state, cx, cy, cyaw, ck, sp, dl, target_ind)
+
+#         x0 = [state.x, state.y, state.v, state.yaw]  # current state
+
+#         oa, odelta, ox, oy, oyaw, ov = iterative_linear_mpc_control(xref, x0, dref, oa, odelta)
+
+#         di, ai = 0.0, 0.0
+#         if odelta is not None:
+#             di, ai = odelta[0], oa[0]
+#             state = update_state(state, ai, di)
+#             # while not rospy.is_shutdown():
+#             _control.gear = 1
+#             _control.reverse = _control.gear < 0
+#             _control.throttle = ai * 0.5
+#             _control.brake = 0
+
+#             # unit:radian -> the mpc output direction is opposite Carla's
+#             _control.steer = (- di) / MAX_STEER 
+
+#         vehicle_control_publisher.publish(_control)
+#         state.x = g_x
+#         state.y = g_y
+#         state.v = g_status.velocity
+#         state.yaw = -g_yaw
+#         print(state.x,state.y,state.v,state.yaw)
+
+#         time = time + DT
+
+#         x.append(a_b(state.x))
+#         y.append(a_b(state.y))
+#         yaw.append(a_b(np.sin((state.yaw))))
+#         v.append(a_b(state.v))
+#         t.append(a_b(time))
+#         d.append(a_b(di))
+#         a.append(a_b(ai))
+
+#         if check_goal(state, goal, target_ind, len(cx)):
+#             print("Goal")
+#             break
+
+#         if show_animation:  # pragma: no cover
+#             ax_main.clear()
+#             # Main window drawing code
+#             if ox is not None:
+#                 ax_main.plot(ox, oy, "xr", label="MPC")
+#             ax_main.plot(cx, cy, "-r", label="course")
+#             ax_main.plot(x, y, "ob", label="trajectory")
+#             ax_main.plot(xref[0, :], xref[1, :], "xk", label="xref")
+#             ax_main.plot(cx[target_ind], cy[target_ind], "xg", label="target")
+#             plot_car(ax_main, state.x, state.y, state.yaw, steer=di)
+#             ax_main.axis("equal")
+#             ax_main.grid(True)
+#             ax_main.set_title("Time[s]:" + str(round(time, 2))
+#                     + ", speed[km/h]:" + str(round(state.v * 3.6, 2))
+#                     + ", yaw[radian]:" + str(round(state.yaw, 2))
+#                     + ", accelerate[m/ss]:" + str(round(ai, 2))
+#                     + ", d_yaw[m/ss]:" + str(round(di, 2)))
+#             ax_main.legend()
+
+
+#             ax1.plot(t, yaw, "-r", label="yaw")
+#             ax1.grid(True)
+#             ax1.set_title('Fig 1.Yaw; Fig 2. d_Yaw; Fig 3. d_Accelerate')
+#             ax1.set_xlabel("Time [s]")
+#             ax1.set_ylabel("Yaw [sin]")
+#             ax1.set_ylim(-1,1)
+
+#             ax2.plot(t, d, "-r", label="d_yaw")
+#             ax2.grid(True)
+#             ax2.set_title('')
+#             ax2.set_xlabel("Time [s]")
+#             ax2.set_ylabel("yaw [rad]")
+
+#             ax3.plot(t, a, "-r", label="d_acc")
+#             ax3.grid(True)
+#             ax3.set_title('')
+#             ax3.set_xlabel("Time [s]")
+#             ax3.set_ylabel("acc [m/ss]")
+
+#             plt.pause(0.0001)
+            
+#             count +=1
+#         # if count > 150:
+#         #     break
+
+#     return t, x, y, yaw, v, d, a
+
 def get_my_course2(dl): #curve
-    ax = [383.8, 334.9]
-    ay = [-326.9, -329.2]
+    ax = [383.8, 0]
+    ay = [-326.9, 0]
     cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
         ax, ay, ds=dl)
 
     return cx, cy, cyaw, ck
 
+def get_straight_course2(dl):
+    ax = [0.0, -10.0, -20.0, -40.0, -50.0, -60.0, -70.0]
+    ay = [0.0, -1.0, 1.0, 0.0, -1.0, 1.0, 0.0]
+    cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
+        ax, ay, ds=dl)
+
+    return cx, cy, cyaw, ck
+
+def get_forward_course(dl):
+    ax = [0.0, 60.0, 125.0, 50.0, 75.0, 30.0, -10.0]
+    ay = [0.0, 0.0, 50.0, 65.0, 30.0, 50.0, -20.0]
+    cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
+        ax, ay, ds=dl)
+
+    return cx, cy, cyaw, ck
+
+def read_txt_round():
+    with open('/workspace/src/control/src/example/odm_x_y_yaw_abs_log_7.txt') as f:
+        data = f.readlines()
+    x_y = np.array([x.split(',') for x in data])[:, :2]
+    ax, ay = x_y[:,0], x_y[:,1]
+    def numpy_string_to_list(v):
+        return [float(x) for x in v]
+    return numpy_string_to_list(ax), numpy_string_to_list(ay)
+
+def get_my_course(dl):
+    ax, ay = read_txt_round()
+    cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
+        ax, ay, ds=dl)
+
+    return cx, cy, cyaw, ck
 
 def main():
     print(__file__ + " start!!")
     start = time.time()
 
     dl = 1.0  # course tick
-    # cx, cy, cyaw, ck = get_straight_course(dl)
-    # cx, cy, cyaw, ck = get_straight_course2(dl)
-    # cx, cy, cyaw, ck = get_straight_course3(dl)
-    # cx, cy, cyaw, ck = get_forward_course(dl)
-    # cx, cy, cyaw, ck = get_switch_back_course(dl)
     cx, cy, cyaw, ck = get_my_course2(dl)
+    # cx, cy, cyaw, ck = get_straight_course2(dl)
+    # cx, cy, cyaw, ck = get_my_course(dl)
 
     sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
 
@@ -732,8 +752,8 @@ def main():
 
     #TODO: : check yaw angle_mod direction and inputs
 
-    # t, x, y, yaw, v, d, a = do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state)
-    t, x, y, yaw, v, d, a = do_sim_carla(cx, cy, cyaw, ck, sp, dl, initial_state)
+    t, x, y, yaw, v, d, a = do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state)
+    # t, x, y, yaw, v, d, a = do_sim_carla(cx, cy, cyaw, ck, sp, dl, initial_state)
 
     elapsed_time = time.time() - start
     print(f"calc time:{elapsed_time:.6f} [sec]")
@@ -753,7 +773,7 @@ def main():
         plt.plot(t, v, "-r", label="speed")
         plt.grid(True)
         plt.xlabel("Time [s]")
-        plt.ylabel("Speed [kmh]")
+        plt.ylabel("Speed [m/s]")
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 8))
         ax1.plot(t, yaw, "-r", label="yaw")
@@ -762,15 +782,15 @@ def main():
         ax1.set_xlabel("Time [s]")
         ax1.set_ylabel("Yaw [rad]")
 
-        ax2.plot(t, d, "-r", label="d_yaw")
+        ax2.plot(t, d, "-r", label="yaw")
         ax2.grid(True)
-        ax2.set_title('d_yaw')
+        ax2.set_title('di')
         ax2.set_xlabel("Time [s]")
-        ax2.set_ylabel("d_yaw [rad]")
+        ax2.set_ylabel("yaw [rad]")
 
-        ax3.plot(t, yaw, "-r", label="d_acc")
+        ax3.plot(t, a, "-r", label="acc")
         ax3.grid(True)
-        ax3.set_title('d_acc')
+        ax3.set_title('acc')
         ax3.set_xlabel("Time [s]")
         ax3.set_ylabel("d_acc [m/ss]")
 
@@ -779,12 +799,12 @@ def main():
 
 if __name__ == '__main__':
 
-    rospy.init_node('asdf')
+    # rospy.init_node('asdf')
 
-    vehicle_control_manual_override_publisher = rospy.Publisher("/carla/ego_vehicle/vehicle_control_manual_override", Bool, queue_size=1)
-    vehicle_control_manual_override_publisher.publish((Bool(True)))
-    rospy.Subscriber("/carla/ego_vehicle/odometry",Odometry, cb_odometry)
-    rospy.Subscriber("/carla/ego_vehicle/vehicle_status",CarlaEgoVehicleStatus, cb_status)
+    # vehicle_control_manual_override_publisher = rospy.Publisher("/carla/ego_vehicle/vehicle_control_manual_override", Bool, queue_size=1)
+    # vehicle_control_manual_override_publisher.publish((Bool(True)))
+    # rospy.Subscriber("/carla/ego_vehicle/odometry",Odometry, cb_odometry)
+    # rospy.Subscriber("/carla/ego_vehicle/vehicle_status",CarlaEgoVehicleStatus, cb_status)
 
     main()
     # main2()
