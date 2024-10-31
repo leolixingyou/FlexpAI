@@ -143,7 +143,10 @@ class My_CarlaSpawnObjects(CompatibleNode):
 
                 # check if there's a spawn_point corresponding to this vehicle
                 # spawn_point_param = self.get_param("spawn_point_" + vehicle["id"], None)
-                spawn_point_param = "383.8,-326.9,0.3,0,0,-180"
+                # Town 01
+                # spawn_point_param = "383.8,-326.9,0.3,0,0,-180" #### Set the point what you want
+                # Town 05
+                spawn_point_param = "118.1,1.9,0.3,0,0,180" #### Set the point what you want
                 spawn_param_used = False
                 if (spawn_point_param is not None):
                     # try to use spawn_point from parameters
@@ -436,4 +439,4 @@ if __name__ == '__main__':
     rospy.init_node('example')
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
     main(config_file)
-    # cleanup_ego_vehicle()
+    # cleanup_ego_vehicle(config_file)
