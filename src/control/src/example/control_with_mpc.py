@@ -1,9 +1,11 @@
 
+"""This file is mpc example for matplot and carla with straight"""
 
 
 import matplotlib.pyplot as plt
 import math
 import numpy as np
+from collections import deque
 
 import cvxpy
 
@@ -21,33 +23,35 @@ import cv2
 import numpy as np
 from transforms3d.euler import quat2euler
 
-# from class_mpc import *
+# from class_mpc importa *
 from carla_spawn_example import spawn_ego_vehicle, clean_ego_vehicle
 from PathPlanning.CubicSpline import cubic_spline_planner
 from utils.angle import angle_mod
 
+print = str
+
 NX = 4  # x = x, y, v, yaw
 NU = 2  # a = [accel, steer]
-T = 5  # horizon length
+T = 10  # horizon length
 
 # mpc parameters
 R = np.diag([0.01, 0.01])  # input cost matrix
 Rd = np.diag([0.01, 1.0])  # input difference cost matrix
 # Q = np.diag([1.0, 1.0, .5, .5])  # state cost matrix
-Q = np.diag([1.0, 1.0, 50, 2.5])  # state cost matrix
+Q = np.diag([1.0, 1.0, 50, 40.])  # state cost matrix
 Qf = Q  # state final matrix
 GOAL_DIS = 1.5  # goal distance
 STOP_SPEED = 0.5 / 3.6  # stop speed
-MAX_TIME = 500.0  # max simulation time
+# MAX_TIME = 500.0  # max simulation time
 
 # iterative paramter
 MAX_ITER = 3  # Max iterationss
 DU_TH = 0.1  # iteration finish param
 
 TARGET_SPEED = 30.0 / 3.6  # [m/s] target speed
-N_IND_SEARCH = 10  # Search index number
+N_IND_SEARCH = 10 # 10  # Search index number
 
-DT = .2  # [s] time tick
+DT = .1  # [s] time tick
 
 # Vehicle parameters
 LENGTH = 4.5  # [m]
@@ -101,13 +105,13 @@ def calc_speed_profile(cx, cy, cyaw, target_speed):
         else:
             speed_profile[i] = target_speed
 
-    # TODO: speed adeption with index 
+    # TODO: speed adeption with index """This file is mpc example for matplot and carla with straight"""
+
     speed_profile[-1] = 0.0
 
     return speed_profile
 
 def calc_nearest_index(state, cx, cy, cyaw, pind):
-
     dx = [state.x - icx for icx in cx[pind:(pind + N_IND_SEARCH)]]
     dy = [state.y - icy for icy in cy[pind:(pind + N_IND_SEARCH)]]
 
@@ -130,6 +134,10 @@ def calc_nearest_index(state, cx, cy, cyaw, pind):
 
 def pi_2_pi(angle):
     return angle_mod(angle)
+
+def deg_to_rad(degree) -> float :
+
+    return degree * (math.pi / 180)
 
 def update_state_carla_from_sensors(state, g_x, g_y, g_yaw, speed):
     state.x = g_x
@@ -157,8 +165,8 @@ def update_state_carla(state, delta, ai, wheel_max_angle):
     
     # Actual observed acceleration (command acceleration + friction)
     state.observed_acc = ai - friction_acc
-    if state.observed_acc<0:
-        print()
+    # if state.observed_acc<0:
+    #     print()
     # Update velocity with observed acceleration
     state.v = state.v + state.observed_acc * DT
 
@@ -169,8 +177,10 @@ def update_state_carla(state, delta, ai, wheel_max_angle):
 
     return state
 
-def update_state(state, ai, delta):
+def update_state(state, ai, delta_sin):
     # input check
+    # delta is sin -> radian
+    delta = math.asin(delta_sin)
     if delta >= MAX_STEER:
         delta = MAX_STEER
     elif delta <= -MAX_STEER:
@@ -521,6 +531,7 @@ def mpc_init(mode, g_yaw=0, velocity=0):
     return state, target_ind, goal, [cx, cy, cyaw, sp, dl, ck, initial_position]
 
 def calc_ref_trajectory(state, cx, cy, cyaw, ck, sp, dl, pind):
+
     xref = np.zeros((NX, T + 1))
     dref = np.zeros((1, T + 1))
     ncourse = len(cx)
@@ -605,6 +616,7 @@ class Controller_MPC:
         self.get_info = False
 
     def mpc_for_carla(self,config_file):
+        rospy.init_node('asdf')
         self.config_file = config_file
         ## !!! spawn vehicle must be before than subscriber !!!
         spawn_ego_vehicle(config_file)
@@ -669,10 +681,11 @@ class Controller_MPC:
         ax_main.axis("equal")
         ax_main.grid(True)
         ax_main.set_title("Time[s]:" + str(round(self.time, 2))
-                + ", speed[km/h]:" + str(round(v_update, 2)*3.6)
+                + ", speed[km/h]:" + str(round(v_update*3.6, 2))
                 + ", yaw[radian]:" + str(round(yaw_update, 2))
                 + ", steer[radian]:" + str(round(wheel_anlge, 2)))
         ax_main.legend()
+        ax_main.set_xlim(g_x_update-10, g_x_update+10)
 
         ax1.plot(self.t, self.yaw, "-r", label="yaw")
         ax1.grid(True)
@@ -684,7 +697,7 @@ class Controller_MPC:
         ax2.plot(self.t, self.d, "-r", label="d_yaw")
         ax2.grid(True)
         ax2.set_title('')
-        ax2.set_xlabel("Time [s]")
+        ax2.set_xlabel("qTime [s]")
         ax2.set_ylabel("yaw [rad]")
 
         ax3.plot(self.t, self.a, "-r", label="d_acc")
@@ -726,7 +739,9 @@ class Controller_MPC:
         self.v.append(self.state.v)
         self.d.append(0.0)
         self.a.append(0.0)
-        
+
+        self.state.x, self.state.y = -290,-0.2
+
         while 1 :
             g_x, g_y = self.state.x, self.state.y 
             _, mpc_updates = self.do_matplot(mpc_infos, odelta, oa)
@@ -833,6 +848,8 @@ class Controller_MPC:
         return _control, [ox, oy, xref, self.target_index, di, ai]
 
     def carla_loop(self, mode, axs, controller):
+        count = 0
+
         while not rospy.is_shutdown():
             g_x, g_y, g_yaw = self.g_x, self.g_y, self.g_yaw
             
@@ -867,7 +884,9 @@ class Controller_MPC:
                     wheel_anlge_from_listener = self.steering_to_wheel(steer_norm, wheel_max_angle)
 
                     _control, mpc_updates = self.do_mpc(mpc_infos, g_x, g_y, g_yaw, speed, _control, wheel_max_angle, odelta, oa, controller)
-                    if controller == 'carla':
+                    count += 1 
+
+                    if controller == 'carla' and count > 50:
                         self.vehicle_control_publisher.publish(_control)
                     if controller == 'arckermann':
                         self.vehicle_control_publisher_arcker.publish(_control)
@@ -875,15 +894,23 @@ class Controller_MPC:
                     self.plot_car_state([g_x, g_y, g_yaw,], wheel_anlge_from_listener, mpc_infos, mpc_updates, axs)
 
     def run(self,config_file):
-        mode = ['matplot', 'carla'][1]
+        mode = ['matplot', 'carla'][0]
         controller = ['arckermann', 'carla'][1]
-        self.x = []
-        self.y = []
-        self.yaw = []
-        self.t = []
-        self.v = []
-        self.d = []
-        self.a = []
+        # self.x = []
+        # self.y = []
+        # self.yaw = []
+        # self.t = []
+        # self.v = []
+        # self.d = []
+        # self.a = []
+
+        self.x = deque(maxlen=50)
+        self.y = deque(maxlen=50)
+        self.yaw = deque(maxlen=50)
+        self.t = deque(maxlen=50)
+        self.v = deque(maxlen=50)
+        self.d = deque(maxlen=50)
+        self.a = deque(maxlen=50)
 
         img = np.zeros([1,1])
         cv2.imshow('img',img)
@@ -901,11 +928,10 @@ class Controller_MPC:
         if mode == 'carla':
             self.mpc_for_carla(config_file)
             self.carla_loop(mode, axs, controller)
-            rospy.Rate(.2).sleep
+            rospy.Rate(60).sleep
         self.cleanup()
 
 if __name__ == '__main__':
-    rospy.init_node('asdf')
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
     vehicle_listener = Controller_MPC()
     try:
