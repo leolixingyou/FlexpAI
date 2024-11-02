@@ -41,7 +41,7 @@ T = 5  # horizon length
 # mpc parameters
 R = np.diag([0.01, 0.01])  # input cost matrix
 Rd = np.diag([0.01, 1.0])  # input difference cost matrix
-Q = np.diag([1.0, 1.0, .5, 0.5])  # state cost matrix
+Q = np.diag([1.0, 1.0, 50, 0.5])  # state cost matrix
 Qf = Q  # state final matrix
 GOAL_DIS = 1.5  # goal distance
 STOP_SPEED = 0.5 / 3.6  # stop speed
@@ -445,7 +445,7 @@ def smooth_yaw(yaw):
 
 
 def reduce_course(n):
-    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05.txt', 'r') as file:
+    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05_integrate.txt', 'r') as file:
         data = file.readlines()
     data_temp = [x for i,x in enumerate(data) if i % n ==0 ]
     info_temp = [x.split(',')[:2] for x in data_temp]
@@ -627,42 +627,55 @@ def acc_brake_with_velocity(_control, ai, di, wheel_max_angle, cx, state, goal, 
         #     _control.brake = 0
         rate_throttle = abs(ai)/MAX_ACCEL
 
-        if state.v <= MIN_SPEED :
+        if ai > 0:
             _control.gear = 1
             _control.reverse = _control.gear < 0
             _control.throttle = rate_throttle 
             _control.brake = 0
-            
-        elif  MIN_SPEED < state.v <= TARGET_SPEED:
-            if rate_throttle > 0:
-                _control.gear = 1
-                _control.reverse = _control.gear < 0
-                _control.throttle = rate_throttle
-                _control.brake = 0
-            else:
-                _control.gear = 0
-                _control.reverse = _control.gear < 0
-                _control.throttle = 0
-                _control.brake = 0
 
-        if state.v > TARGET_SPEED:
+        elif ai < 0:
             _control.gear = 1
             _control.reverse = _control.gear < 0
-            _control.throttle = 0
-            _control.brake = 0
-
-        if rate_throttle < -.8 * MAX_ACCEL:
-            _control.gear = 1
-            _control.reverse = _control.gear < 0
-            _control.throttle = 0
+            _control.throttle = 0 
             _control.brake = rate_throttle
 
-        if check_goal(state, goal, target_index, len(cx)):
-            print("Goal")
-            _control.gear = 1
-            _control.reverse = _control.gear < 0
-            _control.throttle = 0
-            _control.brake = 1
+
+        # if state.v <= MIN_SPEED :
+        #     _control.gear = 1
+        #     _control.reverse = _control.gear < 0
+        #     _control.throttle = rate_throttle 
+        #     _control.brake = 0
+            
+        # elif  MIN_SPEED < state.v <= TARGET_SPEED:
+        #     if rate_throttle > 0:
+        #         _control.gear = 1
+        #         _control.reverse = _control.gear < 0
+        #         _control.throttle = rate_throttle
+        #         _control.brake = 0
+        #     else:
+        #         _control.gear = 0
+        #         _control.reverse = _control.gear < 0
+        #         _control.throttle = 0
+        #         _control.brake = 0
+
+        # if state.v > TARGET_SPEED:
+        #     _control.gear = 1
+        #     _control.reverse = _control.gear < 0
+        #     _control.throttle = 0
+        #     _control.brake = 0
+
+        # if rate_throttle < -.8 * MAX_ACCEL:
+        #     _control.gear = 1
+        #     _control.reverse = _control.gear < 0
+        #     _control.throttle = 0
+        #     _control.brake = rate_throttle
+
+        # if check_goal(state, goal, target_index, len(cx)):
+        #     print("Goal")
+        #     _control.gear = 1
+        #     _control.reverse = _control.gear < 0
+        #     _control.throttle = 0
+        #     _control.brake = 1
 
         return _control
 
@@ -781,21 +794,25 @@ def main_carla():
                                 + ", yaw[radian]:" + str(round(state.yaw, 2))
                                 + ", steer[radian]:" + str(round(di, 2)))
                         ax_main.set_xlim(state.x-10, state.x+10)
+                        ax_main.set_ylim(state.y-10, state.y+10)
 
-                        ax1.plot(t, yaw, "-r", label="yaw")
+                        ax1.clear()
+                        if ox is not None:
+                            ax1.plot(ox, oy, "xr", label="MPC")
+                        ax1.plot(cx, cy, "-r", label="course")
+                        ax1.plot(x, y, "ob", label="trajectory")
+                        ax1.plot(xref[0, :], xref[1, :], "xk", label="xref")
+                        ax1.plot(cx[target_ind], cy[target_ind], "xg", label="target")
                         ax1.grid(True)
-                        ax1.set_title('Fig 1.G_Yaw; Fig 2. V_Yaw; Fig 3. V_Accelerate')
-                        ax1.set_xlabel("Time [s]")
-                        ax1.set_ylabel("Yaw [sin]")
-                        ax1.set_ylim(-1,1)
+                        ax1.set_title('Map')
 
-                        ax2.plot(t, d, "-r", label="d_yaw")
+                        ax2.plot(t, d, "-r", label="yaw")
                         ax2.grid(True)
                         ax2.set_title('')
                         ax2.set_xlabel("qTime [s]")
                         ax2.set_ylabel("yaw [rad]")
 
-                        ax3.plot(t, a, "-r", label="d_acc")
+                        ax3.plot(t, a, "-r", label="acc")
                         ax3.grid(True)
                         ax3.set_title('')
                         ax3.set_xlabel("Time [s]")
