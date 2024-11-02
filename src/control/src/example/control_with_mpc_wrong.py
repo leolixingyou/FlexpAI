@@ -135,80 +135,47 @@ def calc_nearest_index(state, cx, cy, cyaw, pind):
 def pi_2_pi(angle):
     return angle_mod(angle)
 
-def deg_to_rad(degree) -> float :
+def friction_difine(state):
+    mu = 0.015  # Friction coeffecient
+    g = 9.81    # Gravity acceleration
 
-    return degree * (math.pi / 180)
+    # Calculating deceleration due to friction
+    friction_acc = -mu * g * math.cos(state.yaw)  # Consider the influence of slope
+    return friction_acc
 
-def update_state_carla_from_sensors(state, g_x, g_y, g_yaw, speed):
-    state.x = g_x
-    state.y = g_y
-    state.yaw = g_yaw
-    state.v = speed
+def update_state_main(state, ai, delta):
+    state.x = state.x + state.v * math.cos(state.yaw) * DT
+    state.y = state.y + state.v * math.sin(state.yaw) * DT
+    state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
 
+    friction_acc = friction_difine(state)
+    
+    # Actual observed acceleration (command acceleration + friction)
+    state.observed_acc = ai - friction_acc
+
+    # Update velocity with observed acceleration
+    state.v = state.v + state.observed_acc * DT
+
+    if state.v > MAX_SPEED:
+        state.v = MAX_SPEED
+    elif state.v < MIN_SPEED:
+        state.v = MIN_SPEED
     return state
+
+def update_state_matplot(state, ai, delta):
+    # input check
+    if delta >= MAX_STEER:
+        delta = MAX_STEER
+    elif delta <= -MAX_STEER:
+        delta = -MAX_STEER
+    return update_state_main(state, ai, delta)
 
 def update_state_carla(state, delta, ai, wheel_max_angle):
     if delta >= wheel_max_angle:
         delta = wheel_max_angle
     elif delta <= -wheel_max_angle:
         delta = -wheel_max_angle
-
-    state.x = state.x + state.v * math.cos(state.yaw) * DT
-    state.y = state.y + state.v * math.sin(state.yaw) * DT
-    state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
-
-    mu = 0.015  # Friction coeffecient
-    g = 9.81    # Gravity acceleration
-    
-    # Calculating deceleration due to friction
-    friction_acc = -mu * g * math.cos(state.yaw)  # Consider the influence of slope
-    
-    # Actual observed acceleration (command acceleration + friction)
-    state.observed_acc = ai - friction_acc
-    # if state.observed_acc<0:
-    #     print()
-    # Update velocity with observed acceleration
-    state.v = state.v + state.observed_acc * DT
-
-    if state.v > MAX_SPEED:
-        state.v = MAX_SPEED
-    elif state.v < MIN_SPEED:
-        state.v = MIN_SPEED
-
-    return state
-
-def update_state(state, ai, delta_sin):
-    # input check
-    # delta is sin -> radian
-    delta = math.asin(delta_sin)
-    if delta >= MAX_STEER:
-        delta = MAX_STEER
-    elif delta <= -MAX_STEER:
-        delta = -MAX_STEER
-
-    state.x = state.x + state.v * math.cos(state.yaw) * DT
-    state.y = state.y + state.v * math.sin(state.yaw) * DT
-    state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
-
-    mu = 0.015  # Friction coeffecient
-    g = 9.81    # Gravity acceleration
-    
-    # Calculating deceleration due to friction
-    friction_acc = -mu * g * math.cos(state.yaw)  # Consider the influence of slope
-    
-    # Actual observed acceleration (command acceleration + friction)
-    state.observed_acc = ai - friction_acc
-    if state.observed_acc<0:
-        print()
-    # Update velocity with observed acceleration
-    state.v = state.v + state.observed_acc * DT
-
-    if state.v > MAX_SPEED:
-        state.v = MAX_SPEED
-    elif state.v < MIN_SPEED:
-        state.v = MIN_SPEED
-
-    return state
+    return update_state_main(state, ai, delta)
 
 def predict_motion_carla(x0, oa, od, xref, wheel_max_angle):
     xbar = xref * 0.0
@@ -261,7 +228,7 @@ def predict_motion(x0, oa, od, xref):
 
     state = State(x=x0[0], y=x0[1], yaw=x0[3], v=x0[2])
     for (ai, di, i) in zip(oa, od, range(1, T + 1)):
-        state = update_state(state, ai, di)
+        state = update_state_matplot(state, ai, di)
         xbar[0, i] = state.x
         xbar[1, i] = state.y
         xbar[2, i] = state.v
@@ -417,9 +384,9 @@ def plot_car(ax_main, x, y ,yaw , steer=0.0, cabcolor="-r", truckcolor="-k"):  #
 
     fr_wheel = (fr_wheel.T.dot(Rot2)).T
     fl_wheel = (fl_wheel.T.dot(Rot2)).T
-    fmr_wheel = (fmr_wheel.T.dot(Rot2)).T
     fr_wheel[0, :] += WB
     fl_wheel[0, :] += WB
+    fmr_wheel = (fmr_wheel.T.dot(Rot2)).T
     fmr_wheel[0, :] += WB
 
     fr_wheel = (fr_wheel.T.dot(Rot1)).T
@@ -522,6 +489,7 @@ def mpc_init(mode, g_yaw=0, velocity=0):
         state = State(x=cx[0], y=cy[0], yaw=cyaw[0], v=velocity)
     target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
     goal = [cx[-1], cy[-1]]
+
     # initial yaw compensation
     if state.yaw - cyaw[0] >= math.pi:
         state.yaw -= math.pi * 2.0
@@ -723,7 +691,7 @@ class Controller_MPC:
         di, ai = 0.0, 0.0
         if odelta is not None:
             di, ai = odelta[0], oa[0] # radian
-            self.state = update_state(self.state, ai, di)
+            self.state = update_state_matplot(self.state, ai, di)
 
         return _, [ox, oy, xref, self.target_index, di, ai]
     
