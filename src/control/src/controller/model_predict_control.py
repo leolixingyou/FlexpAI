@@ -33,6 +33,7 @@ from src.control.src.carla_sim.carla_spawn_example import spawn_ego_vehicle, cle
 from PathPlanning.CubicSpline import cubic_spline_planner
 from utils.angle import angle_mod
 
+print = str
 
 NX = 4  # x = x, y, v, yaw
 NU = 2  # a = [accel, steer]
@@ -444,18 +445,19 @@ def smooth_yaw(yaw):
     return yaw
 
 
-def reduce_course(n):
-    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05_integrate.txt', 'r') as file:
+def reduce_course(n, mode):
+    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05_round.txt', 'r') as file:
         data = file.readlines()
     data_temp = [x for i,x in enumerate(data) if i % n ==0 ]
     info_temp = [x.split(',')[:2] for x in data_temp]
     data_float = []
     for info in info_temp:
-        print(info)
         float_info = [round(float(x),2) for x in info]
         data_float.append(float_info)
     data_int = np.array(data_float)
     ax, ay = data_int[:,0], data_int[:,1]
+    if mode == 'infinity':
+        ax, ay = list(ax) * 100, list(ay) * 100, 
     return ax, ay
 
 def corrinate_transformation(v):
@@ -463,30 +465,33 @@ def corrinate_transformation(v):
     v_array -= v_array[0]
     return v_array
 
-def init_course(dl): #curve
-    ax, ay = reduce_course(2)   
+def init_course(dl, mode): #curve
+    ax, ay = reduce_course(2, mode)   
     cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
         corrinate_transformation(ax), corrinate_transformation(ay), ds=dl)
     return cx, cy, cyaw, ck, [ax[0], ay[0]]
 
-def mpc_init(x_state=0, y_state=0, yaw_state=0, velocity=0):
+def mpc_init(mode, x_state=0, y_state=0, yaw_state=0, velocity=0):
     dl = 1.0  # course tick
-    cx, cy, cyaw, ck, initial_pose = init_course(dl)
+    cx, cy, cyaw, ck, initial_pose = init_course(dl, mode)
     sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
     if x_state == 0 and y_state == 0 and yaw_state == 0:
         state = State(x=x_state, y=y_state, yaw=yaw_state, v=velocity)
     else:
         state = State(x=cx[0], y=cy[0], yaw=cyaw[0], v=0)
     target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
-    goal = [cx[-1], cy[-1]]
 
     # initial yaw compensation
     if state.yaw - cyaw[0] >= math.pi:
         state.yaw -= math.pi * 2.0
     elif state.yaw - cyaw[0] <= -math.pi:
         state.yaw += math.pi * 2.0
+        
+    if mode == 'finite':
+        goal = [cx[-1], cy[-1]]
+        return state, target_ind, goal, [cx, cy, cyaw, ck, sp, dl, initial_pose]
 
-    return state, target_ind, goal, [cx, cy, cyaw, ck, sp, dl, initial_pose]
+    return state, target_ind, _, [cx, cy, cyaw, ck, sp, dl, initial_pose]
 
 def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
     """
@@ -512,13 +517,14 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
         state.yaw += math.pi * 2.0
 
     time = 0.0
-    x = [state.x]
-    y = [state.y]
-    yaw = [state.yaw]
-    v = [state.v]
-    t = [0.0]
-    d = [0.0]
-    a = [0.0]
+    x = deque([state.x], maxlen= 50)
+    y = deque([state.y], maxlen= 50)
+    yaw = deque([state.yaw], maxlen= 50)
+    v = deque([state.v], maxlen= 50)
+    t = deque([.0], maxlen= 50)
+    d = deque([.0], maxlen= 50)
+    a = deque([.0], maxlen= 50)
+
     target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
 
     odelta, oa = None, None
@@ -561,9 +567,10 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
             d.append(di)
             a.append(ai)
 
-            if check_goal(state, goal, target_ind, len(cx)):
-                print("Goal")
-                break
+            if goal != None:
+                if check_goal(state, goal, target_ind, len(cx)):
+                    print("Goal")
+                    break
 
 
             if show_animation:  # pragma: no cover
@@ -679,19 +686,19 @@ def acc_brake_with_velocity(_control, ai, di, wheel_max_angle, cx, state, goal, 
 
         return _control
 
-def main():
+def main(mode):
     print(__file__ + " start!!")
 
-    cx, cy, cyaw, ck, sp, dl,  initial_position = mpc_init()[-1]
+    cx, cy, cyaw, ck, sp, dl,  initial_position = mpc_init(mode)[-1]
 
     sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
 
-    # initial_state = State(x=cx[0], y=cy[0], yaw=cyaw[0], v=0.0)
-    initial_position = State(x=-290, y=0.2, yaw=cyaw[0], v=0.0)
+    initial_position = State(x=cx[0], y=cy[0], yaw=cyaw[0], v=0.0)
+    # initial_position = State(x=-290, y=0.2, yaw=cyaw[0], v=0.0)
 
     do_simulation(cx, cy, cyaw, ck, sp, dl, initial_position)
 
-def main_carla():
+def main_carla(mode):
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
     vehicle_listener = Controller_MPC()
     vehicle_listener.mpc_for_carla(config_file)
@@ -718,7 +725,7 @@ def main_carla():
 
             if not init_flag:
                 state, target_ind, goal, [cx, cy, cyaw, ck, sp, dl,  initial_pose] = mpc_init(
-                    x_state=g_x, y_state=g_y,yaw_state=g_yaw,velocity=speed
+                    mode, x_state=g_x, y_state=g_y,yaw_state=g_yaw,velocity=speed
                 )
 
                 time = 0.0
@@ -770,9 +777,10 @@ def main_carla():
                     d.append(di)
                     a.append(ai)
 
-                    if check_goal(state, goal, target_ind, len(cx)):
-                        print("Goal")
-                        break
+                    if goal != None:
+                        if check_goal(state, goal, target_ind, len(cx)):
+                            print("Goal")
+                            break
 
 
                     if show_animation:  # pragma: no cover
@@ -871,5 +879,7 @@ class Controller_MPC:
         return wheel_anlge_from_steer if steer_norm >0 else -wheel_anlge_from_steer
 
 if __name__ == '__main__':
-    # main()
-    main_carla()
+    mode_list = ['finite', 'infinity']
+    mode = mode_list[1]
+    main(mode)
+    # main_carla(mode)
