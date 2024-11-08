@@ -446,7 +446,7 @@ def corrinate_transformation(v):
     return v_array
 
 def reduce_course(n):
-    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05.txt', 'r') as file:
+    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05_straight.txt', 'r') as file:
         data = file.readlines()
     data_temp = [x for i,x in enumerate(data) if i % n ==0 ]
     info_temp = [x.split(',')[:2] for x in data_temp]
@@ -564,8 +564,23 @@ def pacakage_msg(target_steer, target_speed, target_acc, target_jerk):
     msg.jerk =target_jerk 
     return msg
 
+def smooth_yaw(yaw):
+
+    for i in range(len(yaw) - 1):
+        dyaw = yaw[i + 1] - yaw[i]
+
+        while dyaw >= math.pi / 2.0:
+            yaw[i + 1] -= math.pi * 2.0
+            dyaw = yaw[i + 1] - yaw[i]
+
+        while dyaw <= -math.pi / 2.0:
+            yaw[i + 1] += math.pi * 2.0
+            dyaw = yaw[i + 1] - yaw[i]
+
+    return yaw
+
 def read_txt_round():
-    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05.txt') as f:
+    with open('/workspace/src/control/src/example/odm_x_y_full_course_town05_straight.txt') as f:
         data = f.readlines()
     x_y = np.array([x.split(',') for x in data])[:, :2]
     ax, ay = x_y[:,0], x_y[:,1]
@@ -680,6 +695,9 @@ class Controller_MPC:
 
         cx, cy, cyaw, sp, dl, ck,_= mpc_infos
 
+
+        cyaw = smooth_yaw(cyaw)
+
         xref, self.target_index, dref = calc_ref_trajectory(
         self.state, cx, cy, cyaw, ck, sp, dl, self.target_index)
 
@@ -775,6 +793,8 @@ class Controller_MPC:
         
     def do_mpc(self, mpc_infos, g_x, g_y, g_yaw, speed, _control, wheel_max_angle, odelta, oa, controller):
         cx, cy, cyaw, sp, dl, ck,_= mpc_infos
+
+        cyaw = smooth_yaw(cyaw)
 
         self.state.x = g_x
         self.state.y = g_y
