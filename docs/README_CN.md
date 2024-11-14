@@ -1,4 +1,4 @@
-# 中文文档 | [English](./docs/README_EN.md) | [한국어](./docs/README_KR.md)
+# 中文文档 | [English](../README_EN.md) | [한국어](./docs/README_KR.md)
 通用自动驾驶系统框架
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
 ![language](https://img.shields.io/badge/language-中文-red.svg)
