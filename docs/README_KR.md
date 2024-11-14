@@ -6,7 +6,8 @@
 ![language](https://img.shields.io/badge/language-中文-red.svg)
 ![language](https://img.shields.io/badge/language-한국어-orange.svg)
 
-![Demo GIF](docs/demo.gif)
+<img src="https://github.com/leolixingyou/FlexpAI/blob/main/docs/demo.gif" width="640" alt="Demo Video">
+
 
 ## 목차
 - [시스템 개요](#시스템-개요)
