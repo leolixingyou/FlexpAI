@@ -1,7 +1,10 @@
 # 한국어 문서 | [中文](./README_CN.md) | [English](../README.md)
 범용 자율주행 시스템 프레임워크
+
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
-![language](https://img.shields.io/badge/language-한국어-blue.svg)
+![language](https://img.shields.io/badge/language-English-blue.svg)
+![language](https://img.shields.io/badge/language-English-red.svg)
+![language](https://img.shields.io/badge/language-한국어-red.svg)
 
 ## 목차
 - [시스템 개요](#시스템-개요)
