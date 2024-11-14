@@ -6,7 +6,7 @@
 ![language](https://img.shields.io/badge/language-中文-red.svg)
 ![language](https://img.shields.io/badge/language-한국어-orange.svg)
 
-![Demo GIF](/FlexpAI/docs/demo.gif)
+![Demo GIF](docs/demo.gif)
 
 ## 목차
 - [시스템 개요](#시스템-개요)
