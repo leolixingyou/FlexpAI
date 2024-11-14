@@ -1,5 +1,6 @@
 # English Document | [中文](./docs/README_CN.md) | [한국어](./docs/README_KR.md)
-Universal Autonomous Driving System Framework
+
+Flexible and Expandable AI-powered software for autonomous driving system.
 
 ![license](https://img.shields.io/badge/license-MIT-green.svg)
 ![language](https://img.shields.io/badge/language-English-blue.svg)

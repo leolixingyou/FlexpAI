@@ -1,5 +1,5 @@
 # 中文文档 | [English](../README.md) | [한국어](./README_KR.md)
-通用自动驾驶系统框架
+灵活可扩展的 AI 驱动自动驾驶系统软件。
 
 ![license](https://img.shields.io/badge/license-MIT-green.svg)
 ![language](https://img.shields.io/badge/language-English-blue.svg)
