@@ -1,4 +1,4 @@
-# English Document | [中文](./docs/README.md) | [한국어](./docs/README_KR.md)
+# English Document | [中文](./docs/README_CN.md) | [한국어](./docs/README_KR.md)
 Universal Autonomous Driving System Framework
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
 ![language](https://img.shields.io/badge/language-English-blue.svg)
