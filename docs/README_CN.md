@@ -8,6 +8,8 @@
 
 [English Documentation](./docs/README_EN.md) | [한국어 문서](./docs/README_KR.md)
 
+![Demo GIF](/FlexpAI/docs/demo.gif)
+
 ## 目录
 - [系统概述](#系统概述)
 - [系统架构设计](#系统架构设计)
