@@ -1,77 +1,73 @@
-
-
-# 通用自动驾驶系统框架 | [English](./docs/README_EN.md) | [한국어](./docs/README_KR.md)
-
+# English Document | [中文](./docs/README.md) | [한국어](./docs/README_KR.md)
+Universal Autonomous Driving System Framework
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
-![language](https://img.shields.io/badge/language-中文-red.svg)
+![language](https://img.shields.io/badge/language-English-blue.svg)
 
-[English Documentation](./docs/README_EN.md) | [한국어 문서](./docs/README_KR.md)
+## Table of Contents
+- [System Overview](#system-overview)
+- [System Architecture](#system-architecture)
+- [Functional Modules](#functional-modules)
+  - [Control System](#control-system)
+  - [Planning System](#planning-system)
+  - [Perception System](#perception-system)
+  - [Sensing System](#sensing-system)
+  - [I/O Interface](#io-interface)
+- [Quick Start](#quick-start)
+- [System Extension](#system-extension)
+- [Performance Testing](#performance-testing)
+- [Contributing](#contributing)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
 
-## 目录
-- [系统概述](#系统概述)
-- [系统架构设计](#系统架构设计)
-- [功能模块](#功能模块)
-  - [控制系统](#控制系统)
-  - [规划系统](#规划系统)
-  - [感知系统](#感知系统)
-  - [传感系统](#传感系统)
-  - [输入输出接口](#输入输出接口)
-- [快速开始](#快速开始)
-- [系统扩展](#系统扩展)
-- [性能测试](#性能测试)
-- [贡献指南](#贡献指南)
-- [致谢](#致谢)
-- [许可证](#许可证)
+## System Overview
+This is a multi-platform universal autonomous driving system framework that supports flexible configuration and functional extension. The system aims to provide a standardized autonomous driving development platform that can adapt to different hardware facilities and application scenarios.
 
-## 系统概述
-这是一个面向多平台的通用自动驾驶系统框架，支持灵活配置与功能扩展。本系统旨在提供一个标准化的自动驾驶开发平台，可适配不同的硬件设施与应用场景。
-
-## 系统架构设计
+## System Architecture
 pass
 
-## 功能模块
+## Functional Modules
 
-### 控制系统
-#### 特点
-- 多控制器支持
-- 实时性保证
-- 控制精度优化
-#### 实现方式
+### Control System
+#### Features
+- Multiple controller support
+- Real-time guarantee
+- Control precision optimization
+#### Implementation
 pass
 
-### 规划系统
-#### 特点
-- 多场景适配
-- 动态路径规划
-- 实时决策优化
-#### 实现方式
+### Planning System
+#### Features
+- Multi-scenario adaptation
+- Dynamic path planning
+- Real-time decision optimization
+#### Implementation
 pass
 
-### 感知系统
-#### 特点
-- 多传感器融合
-- 目标检测与跟踪
-- 场景理解能力
-#### 实现方式
+### Perception System
+#### Features
+- Multi-sensor fusion
+- Object detection and tracking
+- Scene understanding capability
+#### Implementation
 pass
 
-### 传感系统
-#### 特点
-- 传感器模块化设计
-- 数据同步机制
-- 故障检测与恢复
-#### 实现方式
+### Sensing System
+#### Features
+- Modular sensor design
+- Data synchronization mechanism
+- Fault detection and recovery
+#### Implementation
 pass
 
-### 输入输出接口
-#### 特点
-- 一次配置永久使用
-- 标准化接口定义
-- 跨平台兼容
-#### 实现方式
+### I/O Interface
+#### Features
+- One-time configuration for permanent use
+- Standardized interface definition
+- Cross-platform compatibility
+#### Implementation
 pass
 
-## 快速开始
+## Quick Start
 ### Docker Environment Setup
 
 Run the following command to enter the docker environment:
@@ -95,27 +91,25 @@ docker push leolixingyou/ros1_for_self-driving:carla_0.9.13
 ```
 
 
-## 系统扩展
+## System Extension
 pass
 
-## 性能测试
+## Performance Testing
 pass
 
-## 贡献指南
-如果您想为本项目做出贡献，请参考以下步骤：
-1. Fork 本仓库
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 将您的更改推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交拉取请求
+## Contributing
+If you want to contribute to this project, please follow these steps:
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 致谢
-- 感谢所有为本项目做出贡献的开发者
-- 特别感谢以下机构/个人的支持：
-  - [待添加]
-  - [待添加]
+## Acknowledgments
+- Thanks to all developers who contributed to this project
+- Special thanks to the following organizations/individuals:
+  - [To be added]
+  - [To be added]
 
-## 许可证
-本项目采用 MIT 许可证。查看 [LICENSE](LICENSE) 获取更多信息。
-
----
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
