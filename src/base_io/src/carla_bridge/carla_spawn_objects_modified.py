@@ -386,7 +386,7 @@ def cleanup_ego_vehicle(config_file):
     actors =Actor_Listener(config_file)
     start = time.time()
     while not rospy.is_shutdown():
-        if time.time() - start < 3:
+        if time.time() - start < 5: # wait for 5 minutes with control tick in carla 
             if actors.get_info:
                 success = actors.destory_obj()
                 print(f'Clean Up: {success}')
