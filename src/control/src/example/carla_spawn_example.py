@@ -51,5 +51,5 @@ def clean_ego_vehicle(config_file):
 if __name__ == '__main__':
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
     rospy.init_node('get_actor')
-    spawn_ego_vehicle(config_file)
-    # clean_ego_vehicle(config_file)
+    # spawn_ego_vehicle(config_file)
+    clean_ego_vehicle(config_file)

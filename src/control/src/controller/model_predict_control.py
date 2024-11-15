@@ -30,7 +30,7 @@ from transforms3d.euler import quat2euler
 
 # from class_mpc importa *
 from src.control.src.carla_sim.carla_spawn_example import spawn_ego_vehicle, clean_ego_vehicle
-from PathPlanning.CubicSpline import cubic_spline_planner
+from src.planning.src.PathPlanning.CubicSpline import cubic_spline_planner
 from utils.angle import angle_mod
 
 print = str
@@ -689,14 +689,9 @@ def acc_brake_with_velocity(_control, ai, di, wheel_max_angle, cx, state, goal, 
 def main(mode):
     print(__file__ + " start!!")
 
-    cx, cy, cyaw, ck, sp, dl,  initial_position = mpc_init(mode)[-1]
+    state, target_ind, goal, [cx, cy, cyaw, ck, sp, dl,  initial_pose] = mpc_init(mode)
 
-    sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
-
-    initial_position = State(x=cx[0], y=cy[0], yaw=cyaw[0], v=0.0)
-    # initial_position = State(x=-290, y=0.2, yaw=cyaw[0], v=0.0)
-
-    do_simulation(cx, cy, cyaw, ck, sp, dl, initial_position)
+    do_simulation(cx, cy, cyaw, ck, sp, dl, state)
 
 def main_carla(mode):
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
@@ -720,8 +715,6 @@ def main_carla(mode):
             # print('yeah')
             wheel_max_angle = vehicle_listener.wheel_max_angle
             speed = vehicle_listener.status.velocity
-
-
 
             if not init_flag:
                 state, target_ind, goal, [cx, cy, cyaw, ck, sp, dl,  initial_pose] = mpc_init(
@@ -777,7 +770,7 @@ def main_carla(mode):
                     d.append(di)
                     a.append(ai)
 
-                    if goal != None:
+                    if mode == 'finite':
                         if check_goal(state, goal, target_ind, len(cx)):
                             print("Goal")
                             break
@@ -881,5 +874,5 @@ class Controller_MPC:
 if __name__ == '__main__':
     mode_list = ['finite', 'infinity']
     mode = mode_list[1]
-    main(mode)
-    # main_carla(mode)
+    # main(mode)
+    main_carla(mode)

@@ -3,14 +3,16 @@ import numpy as np
 
 import rospy
 from sensor_msgs.msg import Image, PointCloud2, NavSatFix, Imu
+from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque #deque: Append and pop of elements at both ends are overwhelmingly faster.
 
 CARLA_SENSOR_CONFIG = {
     "Camera": ['/Ctrl_CV/camera/image', '/Ctrl_CV/perception/camera', Image],
     "LiDAR": ['/Ctrl_CV/lidar/pcd', '/Ctrl_CV/perception/lidar', PointCloud2],
-    "Gps": ['/Ctrl_CV/gps/gnss', '/Ctrl_CV/perception/gps', NavSatFix],
+    "Gps": ['/carla/ego_vehicle/gnss', '/Ctrl_CV/perception/gps', NavSatFix],
     "Imu": ['/Ctrl_CV/imu', '/Ctrl_CV/perception/imu', Imu],
+    "Odem": ['/carla/ego_vehicle/odometry', '/Ctrl_CV/perception/imu', Odometry],
 }
 
 class Message_Manager:
@@ -31,7 +33,6 @@ class SensorListener:
         self.data_received = False
         
     def callback(self, msg):
-        print(f' here is gps')
         self.msg_manager.get_msgs(msg)
 
     def gathering_msg(self):
@@ -56,7 +57,7 @@ class Camera_Image_Listener(SensorListener):
 
     def gathering_msg(self):
         if len(self.msg_manager.msgs) > 0:
-            self.datas = [x for x in self.msg_manager.msgs]
+            self.datas = self.msg_manager.msgs
             self.times = [x.header.stamp.nsecs for x in self.msg_manager.msgs]
             self.data_received = True
 
@@ -94,3 +95,14 @@ class SensorConfig:
     def __init__(self, platform_name) -> None:
         if platform_name == 'carla':
             self.sensor_config = CARLA_SENSOR_CONFIG
+
+
+class Odem_Listener(SensorListener):
+    def __init__(self,sensor_info):
+        super().__init__(sensor_info)
+
+    def gathering_msg(self):
+        if len(self.msg_manager.msgs) > 1:
+            self.datas = self.msg_manager.msgs
+            self.times = [x.header.stamp.nsecs for x in self.msg_manager.msgs]
+            self.data_received = True

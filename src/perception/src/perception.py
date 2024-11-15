@@ -7,7 +7,6 @@ from ros_tools import Camera_Image_Listener, LiDAR_PointCloud_Listener, GPS_GNSS
 class Perception_Lancher_Manager:
     def __init__(self) -> None:
         rospy.init_node('Sensing_Server', anonymous=False)
-        self.rate = rospy.Rate(100) # 10hz
         self.camera_listener = Camera_Image_Listener()
         self.lidar_listener = LiDAR_PointCloud_Listener()
         self.gps_listener = GPS_GNSS_Listener()
@@ -72,6 +71,7 @@ class Perception_Lancher_Manager:
 
     ### if sensor was shutdown then code will show errors.
     def run(self):
+        rate = rospy.Rate(100) # 10hz
         while not rospy.is_shutdown() :
 
             self.data_gathering()
@@ -83,7 +83,7 @@ class Perception_Lancher_Manager:
             
             if self.sensors_ready:
                 1
-            self.rate.sleep()
+            rate.sleep()
 
 if __name__ == "__main__":
     test_temp = Perception_Lancher_Manager()

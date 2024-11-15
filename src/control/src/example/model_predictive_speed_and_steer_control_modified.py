@@ -60,8 +60,8 @@ T = 5  # horizon length
 # mpc parameters
 R = np.diag([0.01, 0.01])  # input cost matrix
 Rd = np.diag([0.01, 1.0])  # input difference cost matrix
-# Q = np.diag([1.0, 1.0, .5, 0.5])  # state cost matrix
-Q = np.diag([1.0, 1.0, 20.0, 15.])  # state cost matrix
+Q = np.diag([1.0, 1.0, .5, 0.5])  # state cost matrix
+# Q = np.diag([1.0, 1.0, 20.0, 15.])  # state cost matrix
 Qf = Q  # state final matrix
 GOAL_DIS = 1.5  # goal distance
 STOP_SPEED = 0.5 / 3.6  # stop speed
@@ -72,7 +72,7 @@ MAX_ITER = 3  # Max iteration
 DU_TH = 0.2  # iteration finish param
 # DU_TH = 0.2 * T  # iteration finish param
 
-TARGET_SPEED = 30.0 / 3.6  # [m/s] target speed
+TARGET_SPEED = 10.0 / 3.6  # [m/s] target speed
 N_IND_SEARCH = 10  # Search index number
 
 DT = 0.2  # [s] time tick
@@ -176,7 +176,8 @@ def update_state(state, a, delta):
     if state.observed_acc<0:
         print()
     # Update velocity with observed acceleration
-    state.v = state.v + state.observed_acc * DT
+    # state.v = state.v + state.observed_acc * DT
+    state.v = state.v + a * DT
 
     # 速度限制
     if state.v > MAX_SPEED:
@@ -742,8 +743,8 @@ def main():
     start = time.time()
 
     dl = 1.0  # course tick
-    cx, cy, cyaw, ck = get_my_course2(dl)
-    # cx, cy, cyaw, ck = get_straight_course2(dl)
+    # cx, cy, cyaw, ck = get_my_course2(dl)
+    cx, cy, cyaw, ck = get_straight_course2(dl)
     # cx, cy, cyaw, ck = get_my_course(dl)
 
     sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
