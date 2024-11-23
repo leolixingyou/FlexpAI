@@ -1,0 +1,36 @@
+# MPC Parameters
+NX: 4  # x = x, y, v, yaw
+NU: 2  # a = [accel, steer]
+T: 5  # horizon length
+
+# MPC cost matrices
+R: [0.01, 0.01]  # input cost matrix
+Rd: [0.01, 1.0]  # input difference cost matrix
+Q: [1.0, 1.0, 100, 0.45]  # state cost matrix
+Qf: [1.0, 1.0, 100, 0.45]  # state final matrix
+
+# Other MPC parameters
+GOAL_DIS: 1.5  # goal distance
+STOP_SPEED: 0.1389  # stop speed (0.5 / 3.6)
+MAX_TIME: 500.0  # max simulation time
+MAX_ITER: 3  # Max iteration
+DU_TH: 0.1  # iteration finish param
+TARGET_SPEED: 8.3333  # target speed (30.0 / 3.6)
+N_IND_SEARCH: 10  # Search index number
+DT: 0.2  # time tick
+
+# Vehicle parameters
+LENGTH: 4.5  # [m]
+WIDTH: 2.0  # [m]
+BACKTOWHEEL: 1.0  # [m]
+WHEEL_LEN: 0.3  # [m]
+WHEEL_WIDTH: 0.2  # [m]
+TREAD: 0.7  # [m]
+WB: 2.5  # [m]
+
+# Vehicle limits
+MAX_STEER: 45  # maximum steering angle [degree]
+MAX_DSTEER: 30  # maximum steering speed [degree/s]
+MAX_SPEED: 15.2778  # maximum speed [m/s] (55.0 / 3.6)
+MIN_SPEED: 0.0  # minimum speed [m/s] (0.0 / 3.6)
+MAX_ACCEL: 1.0  # maximum accel [m/ss]
