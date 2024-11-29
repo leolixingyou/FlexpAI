@@ -1,6 +1,9 @@
+import math
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 
+def pi_2_pi(angle):
+    return angle_mod(angle)
 
 def rot_mat_2d(angle):
     """
@@ -81,3 +84,20 @@ def angle_mod(x, zero_2_2pi=False, degree=False):
         return mod_angle.item()
     else:
         return mod_angle
+
+
+
+def smooth_yaw(yaw):
+
+    for i in range(len(yaw) - 1):
+        dyaw = yaw[i + 1] - yaw[i]
+
+        while dyaw >= math.pi / 2.0:
+            yaw[i + 1] -= math.pi * 2.0
+            dyaw = yaw[i + 1] - yaw[i]
+
+        while dyaw <= -math.pi / 2.0:
+            yaw[i + 1] += math.pi * 2.0
+            dyaw = yaw[i + 1] - yaw[i]
+
+    return yaw

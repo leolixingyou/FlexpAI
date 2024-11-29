@@ -1,8 +1,8 @@
 """
 
-Path tracking simulation with iterative linear model predictive control for speed and steer control
+Carla Controller Connection with ROS
 
-author: Atsushi Sakai (@Atsushi_twi)
+author: Li Xingyou (@leolixingyou)
 
 """
 import numpy as np
@@ -15,16 +15,12 @@ from transforms3d.euler import quat2euler
 
 import rospy
 
-from std_msgs.msg import Header # pylint: disable=wrong-import-order
 from nav_msgs.msg import Odometry
 from ackermann_msgs.msg import AckermannDrive
 
-from rospy import ServiceException
-from rospy.exceptions import ROSInterruptException
-    
 from src.control.src.carla_sim.carla_spawn_example import spawn_ego_vehicle, clean_ego_vehicle
 
-class Carla_Controller_MPC:
+class Carla_Controller:
     def __init__(self) -> None:
         self.init_plot = False
         self.wheel_max_angle = None

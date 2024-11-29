@@ -2,7 +2,9 @@
 
 Path tracking simulation with iterative linear model predictive control for speed and steer control
 
-author: Atsushi Sakai (@Atsushi_twi)
+author: Li Xingyou (@leolixingyou)
+
+Ref: Atsushi Sakai (@Atsushi_twi)
 
 """
 import matplotlib.pyplot as plt
@@ -31,7 +33,7 @@ from transforms3d.euler import quat2euler
 # from class_mpc importa *
 from src.control.src.carla_sim.carla_spawn_example import spawn_ego_vehicle, clean_ego_vehicle
 from src.planning.src.PathPlanning.CubicSpline import cubic_spline_planner
-from utils.angle import angle_mod
+from utils.angle_process import angle_mod
 from utils.config_reader import load_mpc_parameters
 
 file_path = '/workspace/src/control/src/controller/config/carla_mpc_parameters.yaml'  # Assume the YAML file is named mpc_parameters.yaml
@@ -192,7 +194,15 @@ def friction_difine(state):
     friction_acc = -mu * g * math.cos(state.yaw)  # Consider the influence of slope
     return friction_acc
 
-def update_state_main(state, ai, delta):
+
+def update_state(state, ai, delta):
+
+    # input check
+    if delta >= MAX_STEER:
+        delta = MAX_STEER
+    elif delta <= -MAX_STEER:
+        delta = -MAX_STEER
+        
     state.x = state.x + state.v * math.cos(state.yaw) * DT
     state.y = state.y + state.v * math.sin(state.yaw) * DT
     state.yaw = state.yaw + state.v / WB * math.tan(delta) * DT
@@ -210,16 +220,6 @@ def update_state_main(state, ai, delta):
     elif state.v < MIN_SPEED:
         state.v = MIN_SPEED
     return state
-
-def update_state(state, a, delta):
-
-    # input check
-    if delta >= MAX_STEER:
-        delta = MAX_STEER
-    elif delta <= -MAX_STEER:
-        delta = -MAX_STEER
-
-    return update_state_main(state, a ,delta)
 
 
 def get_nparray_from_matrix(x):
@@ -462,7 +462,7 @@ def reduce_course(n, mode):
         ax, ay = list(ax) * 100, list(ay) * 100, 
     return ax, ay
 
-def corrinate_transformation(v):
+def coordinate_transformation(v):
     v_array = np.array(v)
     v_array -= v_array[0]
     return v_array
@@ -470,7 +470,7 @@ def corrinate_transformation(v):
 def init_course(dl, mode): #curve
     ax, ay = reduce_course(2, mode)   
     cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
-        corrinate_transformation(ax), corrinate_transformation(ay), ds=dl)
+        coordinate_transformation(ax), coordinate_transformation(ay), ds=dl)
     return cx, cy, cyaw, ck, [ax[0], ay[0]]
 
 def mpc_init(mode, x_state=0, y_state=0, yaw_state=0, velocity=0):
@@ -495,7 +495,7 @@ def mpc_init(mode, x_state=0, y_state=0, yaw_state=0, velocity=0):
 
     return state, target_ind, _, [cx, cy, cyaw, ck, sp, dl, initial_pose]
 
-def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
+def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state, target_ind):
     """
     Simulation
 
@@ -527,8 +527,6 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
     d = deque([.0], maxlen= 50)
     a = deque([.0], maxlen= 50)
 
-    target_ind, _ = calc_nearest_index(state, cx, cy, cyaw, 0)
-
     odelta, oa = None, None
 
     cyaw = smooth_yaw(cyaw)
@@ -551,72 +549,69 @@ def do_simulation(cx, cy, cyaw, ck, sp, dl, initial_state):
         oa, odelta, ox, oy, oyaw, ov = iterative_linear_mpc_control(
             xref, x0, dref, oa, odelta)
         
-        count +=1
-        if count > 20:
+        di, ai = 0.0, 0.0
+        if odelta is not None:
+            di, ai = odelta[0], oa[0]
+            state = update_state(state, ai, di)
+
+        time = time + DT
+
+        x.append(state.x)
+        y.append(state.y)
+        yaw.append(state.yaw)
+        v.append(state.v)
+        t.append(time)
+        d.append(di)
+        a.append(ai)
+
+        if goal != None:
+            if check_goal(state, goal, target_ind, len(cx)):
+                print("Goal")
+                break
+
+
+        if show_animation:  # pragma: no cover
+            # for stopping simulation with the esc key.
+            # ax_main.gcf().canvas.mpl_connect('key_release_event',
+            #         lambda event: [exit(0) if event.key == 'escape' else None])
+            ax_main.clear()
+            if ox is not None:
+                ax_main.plot(ox, oy, "xr", label="MPC")
+            ax_main.plot(cx, cy, "-r", label="course")
+            ax_main.plot(x, y, "ob", label="trajectory")
+            ax_main.plot(xref[0, :], xref[1, :], "xk", label="xref")
+            ax_main.plot(cx[target_ind], cy[target_ind], "xg", label="target")
+            plot_car(ax_main, state.x, state.y, state.yaw, steer=di)
+            ax_main.axis("equal")
+            ax_main.grid(True)
+            ax_main.set_title("Time[s]:" + str(round(time, 2))
+                    + ", speed[km/h]:" + str(round(state.v*3.6, 2))
+                    + ", yaw[radian]:" + str(round(state.yaw, 2))
+                    + ", steer[radian]:" + str(round(di, 2)))
+            ax_main.set_xlim(state.x-10, state.x+10)
+
+            ax1.plot(t, yaw, "-r", label="yaw")
+            ax1.grid(True)
+            ax1.set_title('Fig 1.G_Yaw; Fig 2. V_Yaw; Fig 3. V_Accelerate')
+            ax1.set_xlabel("Time [s]")
+            ax1.set_ylabel("Yaw [sin]")
+            ax1.set_ylim(-1,1)
+
+            ax2.plot(t, d, "-r", label="d_yaw")
+            ax2.grid(True)
+            ax2.set_title('')
+            ax2.set_xlabel("qTime [s]")
+            ax2.set_ylabel("yaw [rad]")
+
+            ax3.plot(t, a, "-r", label="d_acc")
+            ax3.grid(True)
+            ax3.set_title('')
+            ax3.set_xlabel("Time [s]")
+            ax3.set_ylabel("acc [m/ss]")
         
-            di, ai = 0.0, 0.0
-            if odelta is not None:
-                di, ai = odelta[0], oa[0]
-                state = update_state(state, ai, di)
-
-            time = time + DT
-
-            x.append(state.x)
-            y.append(state.y)
-            yaw.append(state.yaw)
-            v.append(state.v)
-            t.append(time)
-            d.append(di)
-            a.append(ai)
-
-            if goal != None:
-                if check_goal(state, goal, target_ind, len(cx)):
-                    print("Goal")
-                    break
 
 
-            if show_animation:  # pragma: no cover
-                # for stopping simulation with the esc key.
-                # ax_main.gcf().canvas.mpl_connect('key_release_event',
-                #         lambda event: [exit(0) if event.key == 'escape' else None])
-                ax_main.clear()
-                if ox is not None:
-                    ax_main.plot(ox, oy, "xr", label="MPC")
-                ax_main.plot(cx, cy, "-r", label="course")
-                ax_main.plot(x, y, "ob", label="trajectory")
-                ax_main.plot(xref[0, :], xref[1, :], "xk", label="xref")
-                ax_main.plot(cx[target_ind], cy[target_ind], "xg", label="target")
-                plot_car(ax_main, state.x, state.y, state.yaw, steer=di)
-                ax_main.axis("equal")
-                ax_main.grid(True)
-                ax_main.set_title("Time[s]:" + str(round(time, 2))
-                        + ", speed[km/h]:" + str(round(state.v*3.6, 2))
-                        + ", yaw[radian]:" + str(round(state.yaw, 2))
-                        + ", steer[radian]:" + str(round(di, 2)))
-                ax_main.set_xlim(state.x-10, state.x+10)
-
-                ax1.plot(t, yaw, "-r", label="yaw")
-                ax1.grid(True)
-                ax1.set_title('Fig 1.G_Yaw; Fig 2. V_Yaw; Fig 3. V_Accelerate')
-                ax1.set_xlabel("Time [s]")
-                ax1.set_ylabel("Yaw [sin]")
-                ax1.set_ylim(-1,1)
-
-                ax2.plot(t, d, "-r", label="d_yaw")
-                ax2.grid(True)
-                ax2.set_title('')
-                ax2.set_xlabel("qTime [s]")
-                ax2.set_ylabel("yaw [rad]")
-
-                ax3.plot(t, a, "-r", label="d_acc")
-                ax3.grid(True)
-                ax3.set_title('')
-                ax3.set_xlabel("Time [s]")
-                ax3.set_ylabel("acc [m/ss]")
-            
-
-
-                plt.pause(0.0001)
+            plt.pause(0.0001)
 
 def acc_brake_with_velocity(_control, ai, di, wheel_max_angle, cx, state, goal, target_index):
 
@@ -693,11 +688,11 @@ def main(mode):
 
     state, target_ind, goal, [cx, cy, cyaw, ck, sp, dl,  initial_pose] = mpc_init(mode)
 
-    do_simulation(cx, cy, cyaw, ck, sp, dl, state)
+    do_simulation(cx, cy, cyaw, ck, sp, dl, state, target_ind)
 
 def main_carla(mode):
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
-    vehicle_listener = Controller_MPC()
+    vehicle_listener = Carla_Controller()
     vehicle_listener.mpc_for_carla(config_file)
     print(__file__ + " start!!")
 
@@ -824,7 +819,7 @@ def main_carla(mode):
                         plt.pause(0.0001)
         rospy.Rate(60).sleep
     
-class Controller_MPC:
+class Carla_Controller:
     def __init__(self) -> None:
         self.init_plot = False
         self.wheel_max_angle = None
