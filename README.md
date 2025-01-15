@@ -2,6 +2,7 @@
 
 Flexible and Expandable AI-powered software for autonomous driving system.
 
+
 ![license](https://img.shields.io/badge/license-MIT-green.svg)
 ![language](https://img.shields.io/badge/language-English-blue.svg)
 ![language](https://img.shields.io/badge/language-中文-red.svg)
@@ -9,7 +10,7 @@ Flexible and Expandable AI-powered software for autonomous driving system.
 
 <img src="https://github.com/leolixingyou/FlexpAI/blob/main/docs/demo.gif" width="640" alt="Demo Video">
 
-
+Main file is [model_predict_control_with_param.py](./src/control/src/controller/model_predict_control_with_param.py)
 ## Table of Contents
 - [System Overview](#system-overview)
 - [System Architecture](#system-architecture)
@@ -119,4 +120,4 @@ If you want to contribute to this project, please follow these steps:
   - [To be added]
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under ---

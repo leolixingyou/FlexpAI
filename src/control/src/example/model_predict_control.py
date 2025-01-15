@@ -700,7 +700,7 @@ def main(mode):
 
 def main_carla(mode):
     config_file = '/workspace/src/base_io/src/carla_bridge/objects.json'
-    vehicle_listener = Controller_MPC()
+    vehicle_listener = Carla_Controller_MPC()
     vehicle_listener.mpc_for_carla(config_file)
     print(__file__ + " start!!")
 
@@ -829,7 +829,7 @@ def main_carla(mode):
                     plt.pause(0.0001)
         rospy.Rate(60).sleep
     
-class Controller_MPC:
+class Carla_Controller_MPC:
     def __init__(self) -> None:
         self.init_plot = False
         self.wheel_max_angle = None
