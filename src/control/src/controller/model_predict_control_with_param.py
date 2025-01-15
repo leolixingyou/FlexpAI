@@ -871,5 +871,5 @@ class Carla_Controller:
 if __name__ == '__main__':
     mode_list = ['finite', 'infinity']
     mode = mode_list[1]
-    main(mode)
-    # main_carla(mode)
+    # main(mode)
+    main_carla(mode)
