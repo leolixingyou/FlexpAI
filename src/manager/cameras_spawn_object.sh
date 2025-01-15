@@ -1,0 +1,1 @@
+roslaunch carla_spawn_objects carla_spawn_objects_cameras.launch
