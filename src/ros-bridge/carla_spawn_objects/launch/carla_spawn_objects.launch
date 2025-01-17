@@ -1,11 +1,11 @@
 <!-- -->
 <launch>
-  <arg name="objects_definition_file" default='$(find carla_spawn_objects)/config/objects_targets.json'/>
+  <arg name="objects_definition_file" default='$(find carla_spawn_objects)/config/objects.json'/>
   <!-- use comma separated format "x,y,z,roll,pitch,yaw", 
     and parameter name spawn_point_<vehicle_name>. You can add
     as many spawn_point as vehicles defined in objects_definition_file-->
   <!-- <arg name="spawn_point_ego_vehicle" default="383.8,-326.9,0.3,0,0,-180"/> town 01 -->
-  <arg name="spawn_point_ego_vehicle" default="14.1,1.9,0.3,0,0,180"/> <!-- town 05 -->
+  <arg name="spawn_point_ego_vehicle" default="100.2,17.8,0.3,0,0,-90"/> <!-- town 05 -->
   <arg name="spawn_sensors_only" default="false"/>
 
   <node pkg="carla_spawn_objects" type="carla_spawn_objects.py" name="$(anon carla_spawn_objects)" output="screen">

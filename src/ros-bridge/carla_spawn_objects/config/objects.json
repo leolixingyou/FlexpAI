@@ -22,7 +22,7 @@
             "id": "map"
         },
         {
-            "type": "vehicle.tesla.model3",
+            "type": "vehicle.toyota.prius",
             "id": "ego_vehicle",
             "sensors": 
             [
