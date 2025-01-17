@@ -108,4 +108,5 @@ src/testTestingRootWkspc/coverageWorkspace/.coverage
 
 #hah
 .catkin_workspace
-
+*.zip
+*.pt
